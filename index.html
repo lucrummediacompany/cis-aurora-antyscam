@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CIS Aurora — AntyScam (Local)</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; background:#fff; color:#111; }
+    .wrap { max-width: 900px; margin: auto; }
+    h1 { margin-bottom: 8px; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin-top: 16px; background:#fff; }
+    input[type=text] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; }
+    button { padding: 10px 16px; border-radius: 8px; border: none; cursor: pointer; }
+    button.primary { background: #111; color: #fff; }
+    pre { white-space: pre-wrap; background: #fafafa; padding: 12px; border-radius: 8px; max-height: 480px; overflow: auto; }
+    .muted { color: #666; font-size: 14px; }
+    .row { display: flex; gap: 8px; margin-top: 8px; }
+    @media (prefers-color-scheme: dark) {
+      body { background:#0e0f13; color:#e6e7ea; }
+      .card { border-color:#2a2e37; background:#141720; }
+      input[type=text] { background:#0f1220; border-color:#2a2e37; color:#e6e7ea; }
+      pre { background:#0f1220; }
+      button.primary { background:#1f2330; color:#e6e7ea; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🧠 CIS Aurora — AntyScam (Local)</h1>
+    <p class="muted">Wklej adres kontraktu ETH, uruchom analizę i zobacz wynik. Serwer: Flask (port 5000).</p>
+
+    <div class="card">
+      <form id="form">
+        <label>Adres kontraktu (0x...):</label>
+        <input id="address" type="text" placeholder="0x0000000000000000000000000000000000000000" />
+        <div class="row">
+          <button class="primary" type="submit">Analizuj</button>
+          <button type="button" id="btnLast">Pokaż ostatni raport</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Wynik</h3>
+      <!-- HTML nakładki (ładny panel) -->
+      <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0 0 8px 0"></div>
+      <!-- surowy tail (log z Aurory) -->
+      <pre id="result" style="margin-top:12px">—</pre>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("form");
+    const resBox = document.getElementById("result");
+    const lastBtn = document.getElementById("btnLast");
+    const htmlBox = document.getElementById("overlayHTML");
+
+    async function fetchOverlayHTML() {
+      try {
+        const r = await fetch("/last-report-html");
+        const txt = await r.text();
+        htmlBox.innerHTML = (r.ok ? txt : `<pre>${txt}</pre>`);
+      } catch (e) {
+        htmlBox.innerHTML = `<pre>${String(e)}</pre>`;
+      }
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      resBox.textContent = "⏳ Analiza w toku...";
+      htmlBox.innerHTML = "<div style='padding:12px;color:#666'>⏳ Renderuję nakładkę…</div>";
+      const addr = document.getElementById("address").value.trim();
+      const resp = await fetch("/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ address: addr })
+      });
+      const data = await resp.json();
+      if (data.error) {
+        resBox.textContent = "❌ " + data.error;
+        htmlBox.innerHTML = "";
+        return;
+      }
+      let txt = `Status: ${data.status}\nCzas: ${data.elapsed_sec}s\nAdres: ${data.address}\nCmd: ${data.cmd}\n\nSTDOUT (tail):\n${data.stdout_tail || ""}\n\nSTDERR (tail):\n${data.stderr_tail || ""}`;
+      if (data.last_report) txt += `\n\nOstatni raport: ${data.last_report}`;
+      resBox.textContent = txt;
+
+      // po udanej analizie — dociągnij nakładkę HTML
+      fetchOverlayHTML();
+    });
+
+    lastBtn.addEventListener("click", async () => {
+      // podgląd nakładki z najnowszego raportu + surowy tekst niżej
+      fetchOverlayHTML();
+      const resp = await fetch("/last-report");
+      const data = await resp.json();
+      if (data.error) {
+        resBox.textContent = "❌ " + data.error;
+      } else {
+        resBox.textContent = `Plik: ${data.path}\nTyp: ${data.ext}\n\n${data.content}`;
+      }
+    });
+
+    // Na start spróbuj pokazać ostatnią nakładkę (jeśli już są raporty)
+    fetchOverlayHTML();
+  </script>
+</body>
+</html>
