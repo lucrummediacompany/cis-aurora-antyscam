@@ -1,0 +1,362 @@
+[
+  {
+    "key": "high_tax",
+    "icon": "💰",
+    "detected": [
+      "Transakcje tego tokena są obciążone bardzo wysoką opłatą.",
+      "Realnie dostajesz mniej tokenów niż kupujesz lub sprzedajesz.",
+      "Takie ustawienie zniechęca inwestorów i utrudnia normalny handel."
+    ],
+    "analyze": [
+      "Sprawdzamy, czy kontrakt pobiera nietypowo wysokie prowizje.",
+      "Oceniamy, czy opłaty są stałe, zmienne lub ukryte w kodzie.",
+      "Weryfikujemy, czy opłaty mogą być podniesione po starcie projektu.",
+      "Podsumowujemy, jak to wpływa na komfort i bezpieczeństwo inwestora."
+    ]
+  },
+  {
+    "key": "honeypot",
+    "icon": "🐝",
+    "detected": [
+      "Wygląda, że można kupić token, ale sprzedaż może być zablokowana.",
+      "To klasyczna pułapka – środki mogą utknąć bez wyjścia.",
+      "Takie zachowanie jest częste w projektach o niskiej wiarygodności."
+    ],
+    "analyze": [
+      "Testujemy, czy token da się sprzedać po zakupie.",
+      "Sprawdzamy reguły transferów między użytkownikiem a pulą.",
+      "Szukamy warunków, które blokują sprzedaż tylko niektórym adresom.",
+      "Oceniamy ryzyko, że handel zostanie zablokowany w przyszłości."
+    ]
+  },
+  {
+    "key": "mint_unlimited",
+    "icon": "🧾",
+    "detected": [
+      "Twórca może w dowolnym momencie dodać nowe tokeny do obiegu.",
+      "To zwiększa podaż i osłabia wartość posiadanych tokenów.",
+      "Takie uprawnienie daje dużą przewagę jednej stronie."
+    ],
+    "analyze": [
+      "Sprawdzamy, czy kontrakt ma funkcje dodruku tokenów.",
+      "Weryfikujemy, kto może ich używać i na jakich zasadach.",
+      "Oceniamy, czy istnieje górny limit podaży lub twardy cap.",
+      "Opisujemy wpływ na ryzyko rozwodnienia wartości."
+    ]
+  },
+  {
+    "key": "constructor_mint_msgsender",
+    "icon": "👑",
+    "detected": [
+      "Na starcie większość lub cała podaż trafia do jednego adresu.",
+      "To pełna kontrola nad tokenami już w pierwszej minucie.",
+      "Taka centralizacja ułatwia nagłą wyprzedaż i presję na cenę."
+    ],
+    "analyze": [
+      "Analizujemy, jak rozdzielono tokeny w chwili wdrożenia.",
+      "Szukamy śladów przydziału całej puli do jednej osoby.",
+      "Sprawdzamy, czy są mechanizmy zabezpieczające (vesting, timelock).",
+      "Wskazujemy, czy podaż jest rozproszona czy scentralizowana."
+    ]
+  },
+  {
+    "key": "blacklist_trading",
+    "icon": "🚫",
+    "detected": [
+      "Właściciel może wyłączyć wybrane adresy z handlu.",
+      "Zablokowany użytkownik może nie sprzedać swoich tokenów.",
+      "To ryzyko utraty swobody dysponowania środkami."
+    ],
+    "analyze": [
+      "Wyszukujemy mechanizmy blacklist/whitelist w kodzie.",
+      "Oceniamy, czy właściciel może dodawać adresy do blokady.",
+      "Sprawdzamy, czy blokadę da się aktywować po cichu.",
+      "Opisujemy wpływ takiej funkcji na zwykłego użytkownika."
+    ]
+  },
+  {
+    "key": "pause_control",
+    "icon": "⏸️",
+    "detected": [
+      "Handel tokenem może zostać nagle wstrzymany.",
+      "To bywa zabezpieczeniem, ale może też zamrozić środki.",
+      "Użytkownicy tracą możliwość swobodnych transakcji."
+    ],
+    "analyze": [
+      "Szukamy możliwości zatrzymania transferów.",
+      "Sprawdzamy, kto i kiedy może użyć pauzy.",
+      "Badamy, czy jest plan przywrócenia handlu po przerwie.",
+      "Wyjaśniamy, co to oznacza dla inwestora w praktyce."
+    ]
+  },
+  {
+    "key": "withdraw_stuck",
+    "icon": "💼",
+    "detected": [
+      "Właściciel może wycofać środki z kontraktu.",
+      "To bywa pomocne przy błędach, ale daje pełną władzę jednemu adresowi.",
+      "Użytkownik musi ufać decyzjom właściciela."
+    ],
+    "analyze": [
+      "Sprawdzamy, czy istnieją funkcje wypłaty środków.",
+      "Weryfikujemy, do kogo mogą trafić te środki.",
+      "Oceniamy, czy są limity lub zabezpieczenia tej operacji.",
+      "Opisujemy możliwe scenariusze nadużyć i dobre praktyki."
+    ]
+  },
+  {
+    "key": "kill_switch_v2",
+    "icon": "💣",
+    "detected": [
+      "Kontrakt może zostać zablokowany lub spalony jednym ruchem.",
+      "Na zewnątrz wszystko wygląda normalnie, aż do momentu wyzwolenia.",
+      "To ryzyko nagłego końca projektu bez ostrzeżenia."
+    ],
+    "analyze": [
+      "Polujemy na ukryte warunki, które blokują lub niszczą token.",
+      "Weryfikujemy, kto może uruchomić przełącznik.",
+      "Szukamy znaków zaciemnienia i mylących nazw.",
+      "Oceniamy prawdopodobny wpływ na posiadaczy tokena."
+    ]
+  },
+  {
+    "key": "proxy_like",
+    "icon": "🧩",
+    "detected": [
+      "Kod tokena może być zmieniony po wdrożeniu.",
+      "Zasady działania projektu mogą ulec zmianie w dowolnym momencie.",
+      "To wymaga zaufania do osób z prawem aktualizacji."
+    ],
+    "analyze": [
+      "Wykrywamy wzorce proxy i aktualizacji logiki.",
+      "Sprawdzamy, kto zarządza uprawnieniami do zmian.",
+      "Oceniamy, czy jest kontrola społeczności lub timelock.",
+      "Wyjaśniamy konsekwencje ewentualnych aktualizacji."
+    ]
+  },
+  {
+    "key": "router_exception",
+    "icon": "🔄",
+    "detected": [
+      "Token łączy się z modułem giełdy, by obsłużyć wymiany.",
+      "To normalne, o ile używa się oficjalnych i zaufanych narzędzi.",
+      "Warto potwierdzić, że adresy są prawidłowe."
+    ],
+    "analyze": [
+      "Sprawdzamy powiązania z routerami DEX.",
+      "Weryfikujemy, czy używane są standardowe, rozpoznawalne adresy.",
+      "Oceniamy, czy integracja nie służy do ukrytych opłat.",
+      "Podsumowujemy ryzyko dla zwykłego handlu."
+    ]
+  },
+  {
+    "key": "assembly_obfuscation",
+    "icon": "🧠",
+    "detected": [
+      "W kodzie są fragmenty utrudniające zrozumienie działania.",
+      "Takie sztuczki często służą do ukrycia prawdziwych zamiarów.",
+      "Utrudnia to samodzielną ocenę bezpieczeństwa projektu."
+    ],
+    "analyze": [
+      "Szukamy oznak zaciemnienia i niskopoziomowych sztuczek.",
+      "Porównujemy je z typowymi trikami ukrywania ryzyk.",
+      "Ocenimy, czy utrudniają audyt i przejrzystość.",
+      "Wyjaśnimy, co to znaczy dla posiadaczy tokena."
+    ]
+  },
+  {
+    "key": "dynamic_fee",
+    "icon": "📈",
+    "detected": [
+      "Opłaty mogą się zmieniać po uruchomieniu projektu.",
+      "Użytkownik nie ma pewności, jaka prowizja zostanie naliczona.",
+      "To tworzy nieprzewidywalność w czasie handlu."
+    ],
+    "analyze": [
+      "Weryfikujemy, czy parametry opłat można modyfikować.",
+      "Szukamy ograniczeń i maksymalnych progów.",
+      "Oceniamy, kto ma prawo do zmian i kiedy.",
+      "Opisujemy ryzyko zaskakujących podwyżek."
+    ]
+  },
+  {
+    "key": "max_wallet",
+    "icon": "👜",
+    "detected": [
+      "Istnieje limit liczby tokenów na jednym portfelu.",
+      "Może to utrudniać większym inwestorom zajęcie pozycji.",
+      "Bywa używane jako anty-bot, ale ogranicza swobodę."
+    ],
+    "analyze": [
+      "Sprawdzamy limity portfela i wyjątki.",
+      "Weryfikujemy, czy właściciel może zmieniać limity.",
+      "Oceniamy wpływ na płynność i duże transakcje.",
+      "Opisujemy, czy limit jest rozsądny i przewidywalny."
+    ]
+  },
+  {
+    "key": "max_tx",
+    "icon": "📏",
+    "detected": [
+      "Wprowadzono limit wielkości pojedynczej transakcji.",
+      "To może utrudniać zakup lub sprzedaż większej pozycji.",
+      "Często łączone z innymi ograniczeniami handlu."
+    ],
+    "analyze": [
+      "Szukamy limitów transferu i wyjątków.",
+      "Sprawdzamy, kogo obowiązują i jak bardzo.",
+      "Oceniamy, czy limit jest stały czy zmienny.",
+      "Wyjaśniamy wpływ na komfort użytkownika."
+    ]
+  },
+  {
+    "key": "whitelist_only",
+    "icon": "✅",
+    "detected": [
+      "Handel możliwy tylko dla uprzywilejowanych adresów.",
+      "Zwykli użytkownicy mogą być wykluczeni z wymian.",
+      "To ogranicza dostęp i przejrzystość."
+    ],
+    "analyze": [
+      "Weryfikujemy istnienie whitelisty.",
+      "Sprawdzamy, kto ją ustala i aktualizuje.",
+      "Oceniamy ryzyko arbitralnego wykluczania.",
+      "Opisujemy konsekwencje dla otwartego rynku."
+    ]
+  },
+  {
+    "key": "trading_not_open",
+    "icon": "⛔",
+    "detected": [
+      "Handel tokenem nie jest jeszcze odblokowany.",
+      "Kupno i sprzedaż mogą nie działać zgodnie z oczekiwaniami.",
+      "Warto poczekać na oficjalne otwarcie rynku."
+    ],
+    "analyze": [
+      "Sprawdzamy, czy handel został włączony.",
+      "Szukamy warunków otwarcia i ewentualnych opóźnień.",
+      "Weryfikujemy, czy są wyjątki dla wybranych adresów.",
+      "Informujemy, co to oznacza dla nowych inwestorów."
+    ]
+  },
+  {
+    "key": "hidden_owner",
+    "icon": "🕵️",
+    "detected": [
+      "Nie widać jawnie, kto sprawuje kontrolę nad kontraktem.",
+      "Brak przejrzystości utrudnia ocenę zaufania.",
+      "W takiej sytuacji trudno wyciągać odpowiedzialność."
+    ],
+    "analyze": [
+      "Szukamy informacji o właścicielu i uprawnieniach.",
+      "Weryfikujemy, czy własność jest możliwa do przeniesienia lub zrzeknięcia.",
+      "Oceniamy, czy istnieją role zarządzające i dostęp do nich.",
+      "Opisujemy, jak brak jawności wpływa na ryzyko."
+    ]
+  },
+  {
+    "key": "reentrancy_risk",
+    "icon": "🔁",
+    "detected": [
+      "Zauważyliśmy wzorzec sprzyjający nadużyciom przy wielu wywołaniach.",
+      "Tego typu błąd mógł prowadzić do wyprowadzenia środków w innych projektach.",
+      "Wymaga dokładnej weryfikacji przed inwestycją."
+    ],
+    "analyze": [
+      "Szukamy miejsc podatnych na wielokrotne wywołania.",
+      "Sprawdzamy, czy zastosowano popularne zabezpieczenia.",
+      "Oceniamy ryzyko utraty środków przez luki logiczne.",
+      "Opisujemy, jak projekt mógł to ograniczyć."
+    ]
+  },
+  {
+    "key": "overflow_risk",
+    "icon": "🧮",
+    "detected": [
+      "Zidentyfikowaliśmy sposób liczenia, który może dawać błędne wyniki.",
+      "Takie błędy historycznie prowadziły do utraty środków.",
+      "To sygnał do ostrożności i dalszych testów."
+    ],
+    "analyze": [
+      "Analizujemy operacje arytmetyczne i kontrolę błędów.",
+      "Sprawdzamy, czy użyto bezpiecznych bibliotek.",
+      "Oceniamy wpływ potencjalnych błędów na saldo użytkownika.",
+      "Wyjaśniamy, gdzie ryzyko jest największe."
+    ]
+  },
+  {
+    "key": "timestamp_dependence",
+    "icon": "⏱️",
+    "detected": [
+      "Część logiki może zależeć od czasu w sposób niepewny.",
+      "To bywa nadużywane do drobnych manipulacji.",
+      "Nie jest to krytyczne samo w sobie, ale warto wiedzieć."
+    ],
+    "analyze": [
+      "Sprawdzamy użycie czasu w kluczowych miejscach.",
+      "Oceniamy, czy może to zmieniać wynik transakcji.",
+      "Szukamy ograniczeń łagodzących ryzyko manipulacji.",
+      "Wyjaśniamy znaczenie dla użytkownika końcowego."
+    ]
+  },
+  {
+    "key": "reflection_tax",
+    "icon": "🔁",
+    "detected": [
+      "Część opłaty jest rozdzielana między posiadaczy.",
+      "To może wyglądać korzystnie, ale komplikuje przejrzystość.",
+      "Warto zrozumieć, kiedy i jak następuje naliczanie."
+    ],
+    "analyze": [
+      "Weryfikujemy mechanizm ‘reflection’ i jego parametry.",
+      "Sprawdzamy, czy można go włączyć/wyłączyć zdalnie.",
+      "Oceniamy wpływ na płynność i prostotę handlu.",
+      "Opisujemy, czego spodziewać się po takich tokenach."
+    ]
+  },
+  {
+    "key": "liquidity_removable",
+    "icon": "🌊",
+    "detected": [
+      "Płynność może zostać usunięta przez osoby z uprawnieniami.",
+      "Bez płynności sprzedaż i kupno stają się praktycznie niemożliwe.",
+      "Rynek może nagle zniknąć spod nóg użytkowników."
+    ],
+    "analyze": [
+      "Sprawdzamy, kto i jak zarządza płynnością.",
+      "Szukamy blokad, timelocków i dowodów zablokowania LP.",
+      "Oceniamy ryzyko nagłego wyjęcia płynności.",
+      "Wyjaśniamy, jak to wpływa na wyjście z pozycji."
+    ]
+  },
+  {
+    "key": "scam_audit_fake",
+    "icon": "🪪",
+    "detected": [
+      "Pojawiają się wzmianki o rzekomych audytach bez potwierdzenia.",
+      "Takie praktyki mają budować fałszywe poczucie bezpieczeństwa.",
+      "Lepiej polegać na sprawdzalnych źródłach."
+    ],
+    "analyze": [
+      "Sprawdzamy, czy projekt podaje weryfikowalne dowody audytu.",
+      "Weryfikujemy linki i podpisy, gdy są dostępne.",
+      "Oceniamy wiarygodność źródeł i dat.",
+      "Informujemy, czego brakuje do pełnej przejrzystości."
+    ]
+  },
+  {
+    "key": "external_call_unchecked",
+    "icon": "📡",
+    "detected": [
+      "Zauważyliśmy połączenia z zewnętrznymi kontraktami bez jasnych zabezpieczeń.",
+      "To może prowadzić do nieprzewidzianych skutków podczas transakcji.",
+      "Potrzebna jest ostrożność przy integracjach."
+    ],
+    "analyze": [
+      "Identyfikujemy zewnętrzne wywołania i ich konsekwencje.",
+      "Sprawdzamy, czy przewidziano nietypowe odpowiedzi i błędy.",
+      "Oceniamy, czy można nadużyć tych integracji.",
+      "Wyjaśniamy wpływ na przewidywalność działania tokena."
+    ]
+  }
+]
