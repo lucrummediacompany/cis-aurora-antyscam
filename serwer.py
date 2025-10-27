@@ -344,6 +344,13 @@ def last_report_html():
         badge = _badge_by_score(score)
         bar_w = max(0, min(100, int((score/10.0)*100)))
 
+        # --- wykryj zagrożenia z TXT po substringach ---
+        detected_keys = []
+        lower = txt.lower()
+        for sub, tid in MAP_RULES:
+            if sub in lower and tid in EYES_DATA and tid not in detected_keys:
+                detected_keys.append(tid)
+
         header = f"""
         <div style="padding:16px;margin-bottom:12px;background:#0f1114;border-radius:12px;
                     box-shadow:0 2px 12px rgba(0,0,0,.35)">
@@ -364,7 +371,41 @@ def last_report_html():
         </div>
         """
 
-        # Nawet przy TXT pokaż „Co analizujemy”, żeby raport był kompletny
+        # --- WYKRYTO (jak dla JSON) ---
+        if detected_keys:
+            items = []
+            for tid in detected_keys:
+                meta = EYES_DATA.get(tid, {})
+                icon = meta.get("icon", "🔎")
+                title = meta.get("title", tid)
+                lines = meta.get("detected", [])
+                text = " ".join(lines[:3])
+                items.append(f"""
+                  <div style="padding:14px;border-radius:12px;background:#16181f;
+                              box-shadow:0 2px 10px rgba(0,0,0,.35)">
+                    <div style="display:flex;gap:10px;align-items:flex-start">
+                      <div style="font-size:22px">{icon}</div>
+                      <div>
+                        <div style="font-weight:700">{title}</div>
+                        <div style="font-size:13px;line-height:1.55;opacity:.92;margin-top:4px">{text}</div>
+                      </div>
+                    </div>
+                  </div>
+                """)
+            detected_html = (
+                "<div style='margin-bottom:8px;font-weight:700;border-left:4px solid #d62828;padding-left:8px'>"
+                "Wykryliśmy następujące zagrożenia</div>"
+                f"<div style='display:grid;gap:12px'>{''.join(items)}</div>"
+            )
+        else:
+            detected_html = (
+                "<div style='margin-bottom:8px;font-weight:700;border-left:4px solid #22c55e;padding-left:8px'>"
+                "Nie wykryto krytycznych zagrożeń</div>"
+                "<div style='padding:12px;border-radius:12px;background:#13161c;opacity:.9'>"
+                "<small>Analizator nie znalazł istotnych problemów w tym kontrakcie.</small></div>"
+            )
+
+        # --- CO ANALIZUJEMY (pary, dwie kolumny) ---
         pair_rows = []
         keys = EYES_ORDER[:] if EYES_ORDER else list(EYES_DATA.keys())
         for i in range(0, len(keys), 2):
@@ -397,7 +438,7 @@ def last_report_html():
             + "".join(pair_rows)
         )
 
-        html = header + analyze_html
+        html = header + detected_html + analyze_html
         return html, 200, {"Content-Type": "text/html; charset=utf-8"}
 
     except Exception as e:

@@ -36,16 +36,19 @@
         <div class="row">
           <button class="primary" type="submit">Analizuj</button>
           <button type="button" id="btnLast">Pokaż ostatni raport</button>
+          <!-- opcjonalnie:
+          <button type="button" onclick="window.print()">📄 Zapisz jako PDF</button>
+          -->
         </div>
       </form>
     </div>
 
     <div class="card">
       <h3>Wynik</h3>
-      <!-- HTML nakładki (ładny panel) -->
+      <!-- ładna nakładka HTML -->
       <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0 0 8px 0"></div>
-      <!-- surowy tail (log z Aurory) -->
-      <pre id="result" style="margin-top:12px">—</pre>
+      <!-- surowy log — ukryty, zostawiamy tylko do debug -->
+      <pre id="result" style="display:none;margin-top:12px">—</pre>
     </div>
   </div>
 
@@ -67,38 +70,35 @@
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      resBox.textContent = "⏳ Analiza w toku...";
-      htmlBox.innerHTML = "<div style='padding:12px;color:#666'>⏳ Renderuję nakładkę…</div>";
+      htmlBox.innerHTML = "<div style='padding:12px;color:#666'>⏳ Analiza w toku…</div>";
       const addr = document.getElementById("address").value.trim();
+
       const resp = await fetch("/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({ address: addr })
       });
-      const data = await resp.json();
-      if (data.error) {
-        resBox.textContent = "❌ " + data.error;
-        htmlBox.innerHTML = "";
-        return;
-      }
-      let txt = `Status: ${data.status}\nCzas: ${data.elapsed_sec}s\nAdres: ${data.address}\nCmd: ${data.cmd}\n\nSTDOUT (tail):\n${data.stdout_tail || ""}\n\nSTDERR (tail):\n${data.stderr_tail || ""}`;
-      if (data.last_report) txt += `\n\nOstatni raport: ${data.last_report}`;
-      resBox.textContent = txt;
 
-      // po udanej analizie — dociągnij nakładkę HTML
+      // surowego taila nie pokazujemy (UI pro) — ale zachowujemy do debug w resBox (ukrytym)
+      try {
+        const data = await resp.json();
+        if (resBox) {
+          let txt = data.error
+            ? ("❌ " + data.error)
+            : `Status: ${data.status}\nCzas: ${data.elapsed_sec}s\nAdres: ${data.address}\nCmd: ${data.cmd}\n\nSTDOUT (tail):\n${data.stdout_tail || ""}\n\nSTDERR (tail):\n${data.stderr_tail || ""}`;
+          if (data.last_report) txt += `\n\nOstatni raport: ${data.last_report}`;
+          resBox.textContent = txt;
+        }
+      } catch(_) {}
+
+      // po analizie zawsze dociągamy ładną nakładkę
       fetchOverlayHTML();
     });
 
+    // „Pokaż ostatni raport” — tylko elegancka nakładka (bez surowego TXT)
     lastBtn.addEventListener("click", async () => {
-      // podgląd nakładki z najnowszego raportu + surowy tekst niżej
+      if (resBox) resBox.textContent = "";
       fetchOverlayHTML();
-      const resp = await fetch("/last-report");
-      const data = await resp.json();
-      if (data.error) {
-        resBox.textContent = "❌ " + data.error;
-      } else {
-        resBox.textContent = `Plik: ${data.path}\nTyp: ${data.ext}\n\n${data.content}`;
-      }
     });
 
     // Na start spróbuj pokazać ostatnią nakładkę (jeśli już są raporty)
