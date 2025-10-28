@@ -6,7 +6,7 @@ CIS Aurora — Local HTTP Server
 - GET  / (UI)
 - GET  /health
 - GET  /last-report
-- GET  /last-report-html (ładna nakładka HTML z 'oczami')
+- GET  /last-report-html (HTML overlay z 'oczami' — wersja produkcyjna: bez listy wykryć, krótka notka DYOR)
 """
 from flask import Flask, request, jsonify, send_from_directory
 import subprocess, os, time, re, glob, sys, json
@@ -142,29 +142,49 @@ def _badge_by_score(sc: float) -> str:
         return "<span style='padding:6px 12px;border-radius:999px;background:#ffb703;color:#111;font-weight:700'>RISK</span>"
     return "<span style='padding:6px 12px;border-radius:999px;background:#d62828;color:#fff;font-weight:700'>EXTREME</span>"
 
-# ------------------- MAPPING RULES -------------------
+# Luźne mapowanie substringów z raportu → klucze z EYES (może się przydać później)
 MAP_RULES = [
     ("honeypot", "honeypot"),
+    ("honeypot/", "honeypot"),
     ("podatk", "high_tax"),
     ("fee", "high_tax"),
+    ("high tax", "high_tax"),
     ("dodruk", "mint_unlimited"),
     ("mint", "mint_unlimited"),
     ("100%", "constructor_mint_msgsender"),
     ("owner", "constructor_mint_msgsender"),
     ("blacklist", "blacklist_trading"),
+    ("blok", "blacklist_trading"),
     ("pauz", "pause_control"),
+    ("wstrzym", "pause_control"),
     ("withdraw", "withdraw_stuck"),
+    ("wypł", "withdraw_stuck"),
     ("kill", "kill_switch_v2"),
     ("proxy", "proxy_like"),
     ("router", "router_exception"),
+    ("dex", "router_exception"),
     ("obfusk", "assembly_obfuscation"),
-    ("dynamic", "dynamic_fee"),
+    ("assembly", "assembly_obfuscation"),
     ("reflection", "reflection_tax"),
+    ("dynamic", "dynamic_fee"),
+    ("max wallet", "max_wallet"),
+    ("max tx", "max_tx"),
+    ("whitelist", "whitelist_only"),
+    ("trading not open", "trading_not_open"),
+    ("hidden owner", "hidden_owner"),
+    ("reentrancy", "reentrancy_risk"),
+    ("overflow", "overflow_risk"),
+    ("timestamp", "timestamp_dependence"),
     ("liquidity", "liquidity_removable"),
+    ("audit", "scam_audit_fake"),
+    ("external call", "external_call_unchecked"),
 ]
 
 def _normalize_detected_from_json(report: dict) -> list:
-    out, candidates = [], []
+    """Zwraca listę kluczy EYES wykrytych w raporcie JSON (na razie nie używamy do UI)."""
+    out = []
+    candidates = []
+
     for key in ["threats", "flags", "issues", "detections"]:
         v = report.get(key)
         if not v:
@@ -175,10 +195,12 @@ def _normalize_detected_from_json(report: dict) -> list:
             for k, val in v.items():
                 if val:
                     candidates.append(k)
+
     for s in candidates:
         s_l = s.strip().lower()
         if s_l in EYES_DATA and s_l not in out:
             out.append(s_l)
+
     for s in candidates:
         s_l = s.lower()
         for sub, tid in MAP_RULES:
@@ -188,14 +210,16 @@ def _normalize_detected_from_json(report: dict) -> list:
 
 @app.route("/last-report-html")
 def last_report_html():
+    """Ładna wizualizacja ostatniego raportu (HTML panel). Wersja prod: bez listy wykryć — krótka notka DYOR."""
     path = latest_report_path()
     if not path:
         return "<p>Brak raportów.</p>", 404, {"Content-Type": "text/html; charset=utf-8"}
+
     try:
         rel = os.path.relpath(path, APP_ROOT)
         ext = os.path.splitext(path)[1].lower()
 
-        # ===== JSON =====
+        # ===== Preferuj JSON =====
         if ext == ".json":
             data = json.load(open(path, "r", encoding="utf-8", errors="ignore"))
             report = data[-1] if isinstance(data, list) and data else (data if isinstance(data, dict) else {})
@@ -207,10 +231,12 @@ def last_report_html():
                 score = 0.0
 
             badge = _badge_by_score(score)
-            bar_w = max(0, min(100, int((score / 10.0) * 100)))
-            detected_keys = _normalize_detected_from_json(report)
+            bar_w = max(0, min(100, int((score/10.0)*100)))
 
-            # HEADER
+            # (na przyszłość) wykrycia — teraz pomijamy na UI
+            # detected_keys = _normalize_detected_from_json(report)
+
+            # === HEADER ===
             header = f"""
             <div style="padding:16px;margin-bottom:12px;background:#0f1114;border-radius:12px;
                         box-shadow:0 2px 12px rgba(0,0,0,.35)">
@@ -231,36 +257,20 @@ def last_report_html():
             </div>
             """
 
-            # WYKRYTO
-            items = []
-            for tid in detected_keys:
-                meta = EYES_DATA.get(tid, {})
-                icon = meta.get("icon", "🔎")
-                title = meta.get("label", tid)
-                lines = meta.get("detected", [])
-                text = " ".join(lines[:3])
-                items.append(f"""
-                  <div style="padding:14px;border-radius:12px;background:#16181f;
-                              box-shadow:0 2px 10px rgba(0,0,0,.35)">
-                    <div style="display:flex;gap:10px;align-items:flex-start">
-                      <div style="font-size:22px">{icon}</div>
-                      <div>
-                        <div style="font-weight:700">{title}</div>
-                        <div style="font-size:13px;line-height:1.55;opacity:.92;margin-top:4px">{text}</div>
-                      </div>
-                    </div>
-                  </div>
-                """)
-            detected_html = (
-                "<div style='margin-bottom:8px;font-weight:700;border-left:4px solid #d62828;padding-left:8px'>"
-                "Wykryliśmy następujące zagrożenia</div>"
-                f"<div style='display:grid;gap:12px'>{''.join(items)}</div>"
-            )
+            # === WYKRYTO (wersja prod: krótka notka DYOR) ===
+            detected_html = """
+              <div style="margin-top:10px;margin-bottom:8px;color:#cfd6dc;font-size:13px;line-height:1.6;opacity:.95">
+                🤝 <strong>Ocena to efekt analizy kodu przez silnik CIS Aurora</strong> — pamiętaj o własnym researchu (DYOR).<br>
+                To nie są porady inwestycyjne — decyzje podejmuj samodzielnie.<br>
+                <span style="opacity:.85">💛 Dziękujemy za zaufanie i wsparcie.</span>
+              </div>
+            """
 
-            # CO ANALIZUJEMY
+            # === CO ANALIZUJEMY ===
             pair_rows = []
-            for i in range(0, len(EYES_ORDER), 2):
-                pair = EYES_ORDER[i:i + 2]
+            keys = EYES_ORDER[:] if EYES_ORDER else list(EYES_DATA.keys())
+            for i in range(0, len(keys), 2):
+                pair = keys[i:i+2]
                 row = "<div style='display:flex;gap:20px;margin:20px 0 10px 0;flex-wrap:wrap'>"
                 for tid in pair:
                     meta = EYES_DATA.get(tid, {})
@@ -282,24 +292,35 @@ def last_report_html():
                     """
                 row += "</div>"
                 pair_rows.append(row)
+
             analyze_html = (
                 "<div style='margin-top:16px;margin-bottom:6px;font-weight:700;border-left:4px solid #3b82f6;padding-left:8px'>"
                 "Co analizujemy (stałe obszary audytu)</div>"
                 + "".join(pair_rows)
             )
-            return header + detected_html + analyze_html, 200, {"Content-Type": "text/html; charset=utf-8"}
 
-        # ===== TXT Fallback =====
+            html = header + detected_html + analyze_html
+            return html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+        # ===== Fallback TXT =====
         txt = open(path, "r", encoding="utf-8", errors="ignore").read()
-        lower = txt.lower()
-        detected_keys = [tid for sub, tid in MAP_RULES if sub in lower and tid in EYES_DATA]
         item = _parse_first_line_csv(txt) or {"name": "?", "address": "?", "score": "0", "label": "RISK"}
-        name, addr = item.get("name", "?"), item.get("address", "?")
-        score = float(item.get("score", 0.0)) if str(item.get("score", "")).replace(".", "", 1).isdigit() else 0.0
+        name = item.get("name", "?")
+        addr = item.get("address", "?")
+        try:
+            score = float(item.get("score", 0.0))
+        except Exception:
+            score = 0.0
         badge = _badge_by_score(score)
-        bar_w = max(0, min(100, int((score / 10.0) * 100)))
+        bar_w = max(0, min(100, int((score/10.0)*100)))
 
-        # HEADER
+        # (na UI pomijamy wykrycia)
+        # lower = txt.lower()
+        # detected_keys = []
+        # for sub, tid in MAP_RULES:
+        #     if sub in lower and tid in EYES_DATA and tid not in detected_keys:
+        #         detected_keys.append(tid)
+
         header = f"""
         <div style="padding:16px;margin-bottom:12px;background:#0f1114;border-radius:12px;
                     box-shadow:0 2px 12px rgba(0,0,0,.35)">
@@ -320,36 +341,20 @@ def last_report_html():
         </div>
         """
 
-        # WYKRYTO
-        items = []
-        for tid in detected_keys:
-            meta = EYES_DATA.get(tid, {})
-            icon = meta.get("icon", "🔎")
-            title = meta.get("label", tid)
-            lines = meta.get("detected", [])
-            text = " ".join(lines[:3])
-            items.append(f"""
-              <div style="padding:14px;border-radius:12px;background:#16181f;
-                          box-shadow:0 2px 10px rgba(0,0,0,.35)">
-                <div style="display:flex;gap:10px;align-items:flex-start">
-                  <div style="font-size:22px">{icon}</div>
-                  <div>
-                    <div style="font-weight:700">{title}</div>
-                    <div style="font-size:13px;line-height:1.55;opacity:.92;margin-top:4px">{text}</div>
-                  </div>
-                </div>
-              </div>
-            """)
-        detected_html = (
-            "<div style='margin-bottom:8px;font-weight:700;border-left:4px solid #d62828;padding-left:8px'>"
-            "Wykryliśmy następujące zagrożenia</div>"
-            f"<div style='display:grid;gap:12px'>{''.join(items)}</div>"
-        )
+        # --- WYKRYTO (wersja prod: krótka notka DYOR) ---
+        detected_html = """
+          <div style="margin-top:10px;margin-bottom:8px;color:#cfd6dc;font-size:13px;line-height:1.6;opacity:.95">
+            🤝 <strong>Ocena to efekt analizy kodu przez silnik CIS Aurora</strong> — pamiętaj o własnym researchu (DYOR).<br>
+            To nie są porady inwestycyjne — decyzje podejmuj samodzielnie.<br>
+            <span style="opacity:.85">💛 Dziękujemy za zaufanie i wsparcie.</span>
+          </div>
+        """
 
-        # CO ANALIZUJEMY
+        # === CO ANALIZUJEMY (TXT) ===
         pair_rows = []
-        for i in range(0, len(EYES_ORDER), 2):
-            pair = EYES_ORDER[i:i + 2]
+        keys = EYES_ORDER[:] if EYES_ORDER else list(EYES_DATA.keys())
+        for i in range(0, len(keys), 2):
+            pair = keys[i:i+2]
             row = "<div style='display:flex;gap:20px;margin:20px 0 10px 0;flex-wrap:wrap'>"
             for tid in pair:
                 meta = EYES_DATA.get(tid, {})
@@ -371,16 +376,20 @@ def last_report_html():
                 """
             row += "</div>"
             pair_rows.append(row)
+
         analyze_html = (
             "<div style='margin-top:16px;margin-bottom:6px;font-weight:700;border-left:4px solid #3b82f6;padding-left:8px'>"
             "Co analizujemy (stałe obszary audytu)</div>"
             + "".join(pair_rows)
         )
-        return header + detected_html + analyze_html, 200, {"Content-Type": "text/html; charset=utf-8"}
+
+        html = header + detected_html + analyze_html
+        return html, 200, {"Content-Type": "text/html; charset=utf-8"}
 
     except Exception as e:
-        return f"<pre>Błąd renderowania: {e}</pre>", 500, {"Content-Type": "text/html; charset=utf-8"}
+        return f"<pre>{e}</pre>", 500, {"Content-Type": "text/html; charset=utf-8"}
 
 # ------------------- MAIN -------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
+    port = int(os.environ.get("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port, debug=False)
