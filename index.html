@@ -1,29 +1,84 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CIS Aurora — AntyScam (Local)</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 32px; background:#fff; color:#111; }
-    .wrap { max-width: 900px; margin: auto; }
-    h1 { margin-bottom: 8px; }
-    .card { border: 1px solid #ddd; border-radius: 12px; padding: 16px; margin-top: 16px; background:#fff; }
-    input[type=text] { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; }
-    button { padding: 10px 16px; border-radius: 8px; border: none; cursor: pointer; }
-    button.primary { background: #111; color: #fff; }
-    pre { white-space: pre-wrap; background: #fafafa; padding: 12px; border-radius: 8px; max-height: 480px; overflow: auto; }
-    .muted { color: #666; font-size: 14px; }
-    .row { display: flex; gap: 8px; margin-top: 8px; }
-    @media (prefers-color-scheme: dark) {
-      body { background:#0e0f13; color:#e6e7ea; }
-      .card { border-color:#2a2e37; background:#141720; }
-      input[type=text] { background:#0f1220; border-color:#2a2e37; color:#e6e7ea; }
-      pre { background:#0f1220; }
-      button.primary { background:#1f2330; color:#e6e7ea; }
-    }
-  </style>
+<script>
+  var o_options = {
+    domain: 'lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com',
+    load: 'auth,customForm,emailList,leadCapture,nocode,profile,support'
+  };
+</script>
+<script src="https://cdn.outseta.com/outseta.min.js" data-options="o_options"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CIS Aurora — AntyScam (Local)</title>
+
+<style>
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    font-family: Arial, sans-serif;
+    margin: 32px;
+    background: #0e0f13;
+    color: #e6e7ea;
+  }
+
+  .wrap { max-width: 900px; margin: auto; }
+
+  h1 { margin-bottom: 8px; }
+
+  .card {
+    border: 1px solid #2a2e37;
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 16px;
+    background: #141720;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .4);
+  }
+
+  input[type=text] {
+    width: 100%;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #2a2e37;
+    background: #0f1220;
+    color: #e6e7ea;
+  }
+
+  button {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+  }
+
+  button.primary {
+    background: #1f2330;
+    color: #e6e7ea;
+  }
+
+  button.primary:hover {
+    background: #2b3242;
+  }
+
+  pre {
+    white-space: pre-wrap;
+    background: #0f1220;
+    padding: 12px;
+    border-radius: 8px;
+    max-height: 480px;
+    overflow: auto;
+    color: #e6e7ea;
+  }
+
+  .muted { color: #9aa0a6; font-size: 14px; }
+
+  .row { display: flex; gap: 8px; margin-top: 8px; }
+</style>
 </head>
+
 <body>
   <div class="wrap">
     <h1>🧠 CIS Aurora — AntyScam (Local)</h1>
@@ -36,18 +91,13 @@
         <div class="row">
           <button class="primary" type="submit">Analizuj</button>
           <button type="button" id="btnLast">Pokaż ostatni raport</button>
-          <!-- opcjonalnie:
-          <button type="button" onclick="window.print()">📄 Zapisz jako PDF</button>
-          -->
         </div>
       </form>
     </div>
 
     <div class="card">
       <h3>Wynik</h3>
-      <!-- ładna nakładka HTML -->
       <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0 0 8px 0"></div>
-      <!-- surowy log — ukryty, zostawiamy tylko do debug -->
       <pre id="result" style="display:none;margin-top:12px">—</pre>
     </div>
   </div>
@@ -70,7 +120,7 @@
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      htmlBox.innerHTML = "<div style='padding:12px;color:#666'>⏳ Analiza w toku…</div>";
+      htmlBox.innerHTML = "<div style='padding:12px;color:#9aa0a6'>⏳ Analiza w toku…</div>";
       const addr = document.getElementById("address").value.trim();
 
       const resp = await fetch("/analyze", {
@@ -79,7 +129,6 @@
         body: new URLSearchParams({ address: addr })
       });
 
-      // surowego taila nie pokazujemy (UI pro) — ale zachowujemy do debug w resBox (ukrytym)
       try {
         const data = await resp.json();
         if (resBox) {
@@ -91,17 +140,14 @@
         }
       } catch(_) {}
 
-      // po analizie zawsze dociągamy ładną nakładkę
       fetchOverlayHTML();
     });
 
-    // „Pokaż ostatni raport” — tylko elegancka nakładka (bez surowego TXT)
     lastBtn.addEventListener("click", async () => {
       if (resBox) resBox.textContent = "";
       fetchOverlayHTML();
     });
 
-    // Na start spróbuj pokazać ostatnią nakładkę (jeśli już są raporty)
     fetchOverlayHTML();
   </script>
 </body>
