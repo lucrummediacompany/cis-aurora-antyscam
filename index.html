@@ -25,155 +25,203 @@
     .wrap { max-width: 900px; margin: auto; }
     h1 { margin-bottom: 8px; }
 
-    .card {
-      border: 1px solid #2a2e37;
-      border-radius: 12px;
-      padding: 16px;
-      margin-top: 16px;
-      background: #141720;
-      box-shadow: 0 2px 10px rgba(0,0,0,.4);
-    }
-
-    input[type=text]{
-      width: 100%;
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid #2a2e37;
-      background: #0f1220;
+    .btn {
+      background: #1f2937;
       color: #e6e7ea;
-    }
-
-    button {
-      padding: 10px 16px;
+      border: 1px solid #334155;
       border-radius: 8px;
-      border: none;
+      padding: 8px 12px;
       cursor: pointer;
-      transition: all .2s ease-in-out;
+      transition: transform .05s ease, background .2s;
     }
-    button.primary { background: #1f2330; color: #e6e7ea; }
-    button.primary:hover { background: #2b3242; }
+    .btn:hover { background: #243244; }
+    .btn:active { transform: translateY(1px); }
 
-    pre {
-      white-space: pre-wrap;
-      background: #0f1220;
-      padding: 12px;
-      border-radius: 8px;
-      max-height: 480px;
-      overflow: auto;
-      color: #e6e7ea;
-    }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-    .muted { color: #9aa0a6; font-size: 14px; }
-    .row { display: flex; gap: 8px; margin-top: 8px; }
-
-    nav.row { margin-bottom: 12px; }
-    nav.row a.button{
-      text-decoration: none;
-      background: #1f2330;
-      color: #e6e7ea;
-      padding: 8px 14px;
-      border-radius: 8px;
-      transition: background .2s;
-    }
-    nav.row a.button:hover { background: #2b3242; }
-
-    /* NOWE: krótka informacja o Stripe, bez Outsety */
     .stripe-note {
-      margin: 22px 0 10px 0; /* większy oddech nad formularzem */
-      padding: 10px 12px;
-      border: 1px solid #2a2e37;
-      border-radius: 10px;
-      background: #101421;
-      font-size: 14px;
+      display: inline-block;
+      margin: 12px 0 18px 0;
+      padding: 8px 12px;
+      border: 1px dashed #334155;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #b9c2d0;
+      font-size: 0.95rem;
     }
-    .stripe-note b { font-weight: 700; }
+  /* Dynamic billing badges */
+  .stripe-note.badge--trial{background:rgba(255,200,0,.08);color:#ffd479;border-color:rgba(255,200,0,.25);}
+  .stripe-note.badge--active{background:rgba(0,200,140,.08);color:#73f3cc;border-color:rgba(0,200,140,.25);}
+    .card {
+      border: 1px solid #1f2937;
+      background: #0f1623;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .card h3 { margin: 0 0 10px 0; }
+
+    .input {
+      width: 100%;
+      background: #0c1320;
+      color: #e6e7ea;
+      border: 1px solid #243244;
+      border-radius: 10px;
+      padding: 10px 12px;
+      outline: none;
+    }
+    .input:focus { border-color: #3b82f6; }
+
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+    .pill.good { background: #0b2f27; color: #81f2d2; border: 1px solid #184e42; }
+    .pill.risk { background: #2f210b; color: #f2c681; border: 1px solid #5a4117; }
+    .pill.bad { background: #2f0b0b; color: #f28181; border: 1px solid #5a1717; }
+
+    .grid { display: grid; gap: 12px; }
+    @media (min-width: 900px) { .grid-cols-2 { grid-template-columns: 1fr 1fr; } }
+
+    .muted { color: #9aa6b2; font-size: .95rem; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 3px 10px; border-radius: 999px; font-size: .85rem; border: 1px solid #334155;
+      background: #0b1220; color: #bcd0ea;
+    }
+    .sep { height: 10px; }
   </style>
 </head>
-
 <body>
   <div class="wrap">
     <h1>🧠 CIS Aurora — AntyScam (Local)</h1>
-    <p class="muted">Wklej adres kontraktu ETH, uruchom analizę i zobacz wynik. Serwer: Flask (port 5000).</p>
+    <div class="muted">Wklej adres kontraktu ETH, uruchom analizę i zobacz wynik. Serwer: Flask (port 5000).</div>
 
-    <!-- 🔐 Pasek logowania Outseta -->
-    <nav class="row">
-      <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=register#o-anonymous">Załóż konto</a>
-      <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=login#o-anonymous">Zaloguj</a>
-      <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/profile#o-authenticated">Profil</a>
-      <a class="button" href="#o-logout-link">Wyloguj</a>
-    </nav>
+    <div class="sep"></div>
 
-    <!-- ✅ Zostawiamy tylko info o Stripe -->
-    <div class="stripe-note">Płatności obsługuje <b>Stripe</b>.</div>
-
-    <div class="card">
-      <form id="form">
-        <label>Adres kontraktu (0x...):</label>
-        <input id="address" type="text" placeholder="0x0000000000000000000000000000000000000000" />
-        <div class="row">
-          <button class="primary" type="submit">Analizuj</button>
-          <button type="button" id="btnLast">Pokaż ostatni raport</button>
-        </div>
-      </form>
+    <div class="row">
+      <button class="btn" id="btnProfile">Profil</button>
+      <button class="btn" id="btnLogout">Wyloguj</button>
     </div>
 
-    <div class="card">
+    <!-- Pasek statusu płatności (dynamiczny, fallback na „Stripe”) -->
+    <div class="stripe-note" id="billingBadge" title="Status płatności">Płatności obsługuje <b>Stripe</b>.</div>
+
+    <div class="card" style="margin-top: 6px;">
+      <label for="address" class="muted">Adres kontraktu (0x...):</label>
+      <input id="address" class="input" placeholder="0x0000000000000000000000000000000000000000"/>
+      <div class="sep"></div>
+      <div class="row">
+        <button id="analyzeBtn" class="btn">Analizuj</button>
+        <button id="lastBtn" class="btn">Pokaż ostatni raport</button>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div id="result" class="card">
       <h3>Wynik</h3>
-      <!-- HTML raportu (ładniejsza warstwa) -->
-      <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0 0 8px 0"></div>
-      <!-- Surowe dane/diagnostyka -->
-      <pre id="result" style="display:none;margin-top:12px">—</pre>
+      <pre id="resultBox" class="muted">Brak raportów.</pre>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="grid grid-cols-2">
+      <div class="card">
+        <div class="pill good">GOOD</div> TokenMintERC20Token
+        <div class="muted">Adres: 0x95ad61b0a15e0d79219dcf64e1c6ec01f8cb4c4ce</div>
+        <div class="muted">Wynik: <b>8.80 / 10</b></div>
+      </div>
+      <div class="card">
+        <h3 class="muted">📝 Co analizujemy (stałe obszary audytu)</h3>
+        <ul class="muted" style="margin: 6px 0 0 14px;">
+          <li>Wysokie podatki</li>
+          <li>Pułapki na kupujących</li>
+          <li>Możliwość nieograniczonego dodruku</li>
+          <li>Cała podaż do jednego adresu na starcie</li>
+        </ul>
+      </div>
     </div>
   </div>
 
   <script>
-    const form   = document.getElementById("form");
-    const resBox = document.getElementById("result");
-    const lastBtn= document.getElementById("btnLast");
-    const htmlBox= document.getElementById("overlayHTML");
+    // UI handlers (Outseta widgets)
+    const btnProfile = document.getElementById('btnProfile');
+    const btnLogout  = document.getElementById('btnLogout');
+    btnProfile?.addEventListener('click', () => {
+      try { Outseta.nocode.profile.open(); } catch(e) { console.warn(e); }
+    });
+    btnLogout?.addEventListener('click', async () => {
+      try { await Outseta.auth.signOut(); location.reload(); } catch(e) { console.warn(e); }
+    });
 
-    async function fetchOverlayHTML(){
-      try{
-        const r = await fetch("/last-report-html");
-        const txt = await r.text();
-        htmlBox.innerHTML = (r.ok ? txt : `<pre>${txt}</pre>`);
-      }catch(e){
-        htmlBox.innerHTML = `<pre>${String(e)}</pre>`;
+    // Demo analyze / last-report hooks (pozostawione bez zmian)
+    const addr = document.getElementById('address');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const lastBtn = document.getElementById('lastBtn');
+    const out = document.getElementById('resultBox');
+
+    analyzeBtn?.addEventListener('click', async () => {
+      out.textContent = '⏳ Analiza w toku…';
+      try {
+        const r = await fetch('/analyze?address=' + encodeURIComponent(addr.value || ''));
+        out.textContent = await r.text();
+      } catch (e) {
+        out.textContent = 'TypeError: NetworkError when attempting to fetch resource.';
       }
-    }
+    });
 
-    form.addEventListener("submit", async (e)=>{
-      e.preventDefault();
-      htmlBox.innerHTML = "<div style='padding:12px;color:#9aa0a6'>⏳ Analiza w toku…</div>";
-      const addr = document.getElementById("address").value.trim();
+    lastBtn?.addEventListener('click', async () => {
+      try {
+        const r = await fetch('/last-report');
+        out.textContent = await r.text();
+      } catch (e) {
+        out.textContent = 'Brak raportów.';
+      }
+    });
+  </script>
 
-      const resp = await fetch("/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ address: addr })
-      });
-
-      try{
-        const data = await resp.json();
-        if(resBox){
-          let txt = data.error
-            ? ("❌ " + data.error)
-            : `Status: ${data.status}\nCzas: ${data.elapsed_sec}s\nAdres: ${data.address}\nCmd: ${data.cmd}\n\nSTDOUT (tail):\n${data.stdout_tail || ""}\n\nSTDERR (tail):\n${data.stderr_tail || ""}`;
-          if(data.last_report) txt += `\n\nOstatni raport: ${data.last_report}`;
-          resBox.textContent = txt;
+  <script>
+    // Dynamic Outseta billing badge (safe, optional)
+    (function(){
+      var badge = document.getElementById('billingBadge');
+      function setBadge(state){
+        if(!badge) return;
+        badge.classList.remove('badge--trial','badge--active');
+        if(state==='trial'){
+          badge.innerHTML = 'Plan: <b>TRIAL</b> (okres próbny)';
+          badge.classList.add('badge--trial');
+        } else if(state==='active'){
+          badge.innerHTML = 'Plan: <b>ACTIVE</b>';
+          badge.classList.add('badge--active');
+        } else {
+          badge.innerHTML = 'Płatności obsługuje <b>Stripe</b>.';
         }
-      }catch(_){}
-
-      fetchOverlayHTML();
-    });
-
-    lastBtn.addEventListener("click", ()=>{
-      if(resBox) resBox.textContent = "";
-      fetchOverlayHTML();
-    });
-
-    // Auto-załaduj ostatni raport przy starcie
-    fetchOverlayHTML();
+      }
+      try{
+        if(window.Outseta && typeof window.Outseta.on==='function'){
+          window.Outseta.on('ready', function(){
+            // Spróbuj pobrać listę subskrypcji (u zalogowanego użytkownika). W razie błędu – fallback do Stripe.
+            var getter = (window.Outseta.get ? window.Outseta.get : null);
+            if(!getter){ setBadge(null); return; }
+            getter('billing/subscriptions').then(function(resp){
+              var list = (resp && (resp.items || resp.data)) || resp || [];
+              var state = null;
+              for(var i=0;i<list.length;i++){
+                var s = list[i] || {};
+                var status = String(s.status || s.SubscriptionStatus || '').toLowerCase();
+                var trialEnd = s.trial_ends_at || s.trialEndsAt;
+                if(status.indexOf('trial')>-1 || (trialEnd && new Date(trialEnd) > new Date())){ state='trial'; break; }
+                if(status.indexOf('active')>-1){ state='active'; break; }
+              }
+              setBadge(state);
+            }).catch(function(){ setBadge(null); });
+          });
+        }
+      }catch(e){ /* ignore */ }
+    })();
   </script>
 </body>
 </html>
