@@ -1,93 +1,93 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<script>
-  var o_options = {
-    domain: 'lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com',
-    load: 'auth,customForm,emailList,leadCapture,nocode,profile,support'
-  };
-</script>
-<script src="https://cdn.outseta.com/outseta.min.js" data-options="o_options"></script>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>CIS Aurora — AntyScam (Local)</title>
+  <!-- Outseta embed (auth + profile + nocode widgets) -->
+  <script>
+    var o_options = {
+      domain: 'lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com',
+      load: 'auth,customForm,emailList,leadCapture,nocode,profile,support'
+    };
+  </script>
+  <script src="https://cdn.outseta.com/outseta.min.js" data-options="o_options"></script>
 
-<style>
-  :root {
-    color-scheme: dark;
-  }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CIS Aurora — AntyScam (Local)</title>
 
-  body {
-    font-family: Arial, sans-serif;
-    margin: 32px;
-    background: #0e0f13;
-    color: #e6e7ea;
-  }
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 32px;
+      background: #0e0f13;
+      color: #e6e7ea;
+    }
+    .wrap { max-width: 900px; margin: auto; }
+    h1 { margin-bottom: 8px; }
 
-  .wrap { max-width: 900px; margin: auto; }
+    .card {
+      border: 1px solid #2a2e37;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 16px;
+      background: #141720;
+      box-shadow: 0 2px 10px rgba(0,0,0,.4);
+    }
 
-  h1 { margin-bottom: 8px; }
+    input[type=text]{
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #2a2e37;
+      background: #0f1220;
+      color: #e6e7ea;
+    }
 
-  .card {
-    border: 1px solid #2a2e37;
-    border-radius: 12px;
-    padding: 16px;
-    margin-top: 16px;
-    background: #141720;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, .4);
-  }
+    button {
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: all .2s ease-in-out;
+    }
+    button.primary { background: #1f2330; color: #e6e7ea; }
+    button.primary:hover { background: #2b3242; }
 
-  input[type=text] {
-    width: 100%;
-    padding: 12px;
-    border-radius: 8px;
-    border: 1px solid #2a2e37;
-    background: #0f1220;
-    color: #e6e7ea;
-  }
+    pre {
+      white-space: pre-wrap;
+      background: #0f1220;
+      padding: 12px;
+      border-radius: 8px;
+      max-height: 480px;
+      overflow: auto;
+      color: #e6e7ea;
+    }
 
-  button {
-    padding: 10px 16px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.2s ease-in-out;
-  }
+    .muted { color: #9aa0a6; font-size: 14px; }
+    .row { display: flex; gap: 8px; margin-top: 8px; }
 
-  button.primary {
-    background: #1f2330;
-    color: #e6e7ea;
-  }
+    nav.row { margin-bottom: 12px; }
+    nav.row a.button{
+      text-decoration: none;
+      background: #1f2330;
+      color: #e6e7ea;
+      padding: 8px 14px;
+      border-radius: 8px;
+      transition: background .2s;
+    }
+    nav.row a.button:hover { background: #2b3242; }
 
-  button.primary:hover {
-    background: #2b3242;
-  }
-
-  pre {
-    white-space: pre-wrap;
-    background: #0f1220;
-    padding: 12px;
-    border-radius: 8px;
-    max-height: 480px;
-    overflow: auto;
-    color: #e6e7ea;
-  }
-
-  .muted { color: #9aa0a6; font-size: 14px; }
-
-  .row { display: flex; gap: 8px; margin-top: 8px; }
-
-  nav.row { margin-bottom: 12px; }
-  nav.row a.button {
-    text-decoration: none;
-    background: #1f2330;
-    color: #e6e7ea;
-    padding: 8px 14px;
-    border-radius: 8px;
-    transition: background 0.2s;
-  }
-  nav.row a.button:hover { background: #2b3242; }
-</style>
+    /* NOWE: krótka informacja o Stripe, bez Outsety */
+    .stripe-note {
+      margin: 22px 0 10px 0; /* większy oddech nad formularzem */
+      padding: 10px 12px;
+      border: 1px solid #2a2e37;
+      border-radius: 10px;
+      background: #101421;
+      font-size: 14px;
+    }
+    .stripe-note b { font-weight: 700; }
+  </style>
 </head>
 
 <body>
@@ -95,13 +95,16 @@
     <h1>🧠 CIS Aurora — AntyScam (Local)</h1>
     <p class="muted">Wklej adres kontraktu ETH, uruchom analizę i zobacz wynik. Serwer: Flask (port 5000).</p>
 
-    <!-- 🔐 PASEK LOGOWANIA OUTSETA -->
+    <!-- 🔐 Pasek logowania Outseta -->
     <nav class="row">
       <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=register#o-anonymous">Załóż konto</a>
       <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=login#o-anonymous">Zaloguj</a>
       <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/profile#o-authenticated">Profil</a>
       <a class="button" href="#o-logout-link">Wyloguj</a>
     </nav>
+
+    <!-- ✅ Zostawiamy tylko info o Stripe -->
+    <div class="stripe-note">Płatności obsługuje <b>Stripe</b>.</div>
 
     <div class="card">
       <form id="form">
@@ -116,28 +119,30 @@
 
     <div class="card">
       <h3>Wynik</h3>
+      <!-- HTML raportu (ładniejsza warstwa) -->
       <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0 0 8px 0"></div>
+      <!-- Surowe dane/diagnostyka -->
       <pre id="result" style="display:none;margin-top:12px">—</pre>
     </div>
   </div>
 
   <script>
-    const form = document.getElementById("form");
+    const form   = document.getElementById("form");
     const resBox = document.getElementById("result");
-    const lastBtn = document.getElementById("btnLast");
-    const htmlBox = document.getElementById("overlayHTML");
+    const lastBtn= document.getElementById("btnLast");
+    const htmlBox= document.getElementById("overlayHTML");
 
-    async function fetchOverlayHTML() {
-      try {
+    async function fetchOverlayHTML(){
+      try{
         const r = await fetch("/last-report-html");
         const txt = await r.text();
         htmlBox.innerHTML = (r.ok ? txt : `<pre>${txt}</pre>`);
-      } catch (e) {
+      }catch(e){
         htmlBox.innerHTML = `<pre>${String(e)}</pre>`;
       }
     }
 
-    form.addEventListener("submit", async (e) => {
+    form.addEventListener("submit", async (e)=>{
       e.preventDefault();
       htmlBox.innerHTML = "<div style='padding:12px;color:#9aa0a6'>⏳ Analiza w toku…</div>";
       const addr = document.getElementById("address").value.trim();
@@ -148,25 +153,26 @@
         body: new URLSearchParams({ address: addr })
       });
 
-      try {
+      try{
         const data = await resp.json();
-        if (resBox) {
+        if(resBox){
           let txt = data.error
             ? ("❌ " + data.error)
             : `Status: ${data.status}\nCzas: ${data.elapsed_sec}s\nAdres: ${data.address}\nCmd: ${data.cmd}\n\nSTDOUT (tail):\n${data.stdout_tail || ""}\n\nSTDERR (tail):\n${data.stderr_tail || ""}`;
-          if (data.last_report) txt += `\n\nOstatni raport: ${data.last_report}`;
+          if(data.last_report) txt += `\n\nOstatni raport: ${data.last_report}`;
           resBox.textContent = txt;
         }
-      } catch(_) {}
+      }catch(_){}
 
       fetchOverlayHTML();
     });
 
-    lastBtn.addEventListener("click", async () => {
-      if (resBox) resBox.textContent = "";
+    lastBtn.addEventListener("click", ()=>{
+      if(resBox) resBox.textContent = "";
       fetchOverlayHTML();
     });
 
+    // Auto-załaduj ostatni raport przy starcie
     fetchOverlayHTML();
   </script>
 </body>
