@@ -192,6 +192,10 @@
     const statusPlan  = document.getElementById("statusPlan");
     const statusState = document.getElementById("statusState");
 
+    // Dodatkowe referencje
+    const analyzeBtn  = document.querySelector("#analyzeCard button.primary");
+    let paywallNote   = null;
+
     let isAuthed = false;
     let profile  = null;
 
@@ -221,11 +225,36 @@
       statusState.textContent = "Status: " + state;
     }
 
+    // ✅ tylko Active/Trial/Trialing mają dostęp do analizy
+    function canAnalyze(p){
+      const subs = (p?.Account?.Subscriptions) || [];
+      const s = subs.length ? subs[0] : null;
+      const status = (s?.Status || s?.State || "").toLowerCase();
+      return ["active","trial","trialing"].includes(status);
+    }
+
     function renderGate(){
       if(isAuthed){
         setDisplay(deniedCard, false);
         setDisplay(analyzeCard, true);
         setDisplay(resultCard, true);
+
+        const allowed = canAnalyze(profile);
+
+        if (analyzeBtn){
+          analyzeBtn.disabled = !allowed;
+          analyzeBtn.title = allowed ? "" : "Wymagana aktywna subskrypcja (lub trial).";
+        }
+
+        if (!paywallNote){
+          paywallNote = document.createElement("div");
+          paywallNote.style.cssText = "margin-top:10px;font-size:14px;padding:10px;border:1px solid #2a2e37;border-radius:8px;background:#101421;color:#9aa0a6;";
+          analyzeCard.appendChild(paywallNote);
+        }
+        paywallNote.innerHTML = canAnalyze(profile)
+          ? "✅ Masz dostęp do analizy (plan aktywny lub trial)."
+          : "🔒 Dostęp zablokowany: aktywuj plan w <a href='https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/profile#o-authenticated' style='color:#cfd3ff'>Profil / Płatności</a>.";
+
       }else{
         setDisplay(analyzeCard, false);
         setDisplay(resultCard, false);
@@ -255,7 +284,7 @@
     // Start: sprawdź stan autoryzacji
     refreshAuthState();
 
-    // Obsługa formularza analizy (blokuj dla niezalogowanych)
+    // Obsługa formularza analizy (blok + nagłówki do backendu)
     if(form){
       form.addEventListener("submit", async (e)=>{
         e.preventDefault();
@@ -264,12 +293,26 @@
           setDisplay(deniedCard, true);
           return;
         }
+        if(!canAnalyze(profile)){
+          htmlBox.innerHTML = "<div style='padding:12px;color:#ffb4b4'>🔒 Wymagana aktywna subskrypcja lub trial. Aktywuj plan w Profil / Płatności.</div>";
+          return;
+        }
+
         htmlBox.innerHTML = "<div style='padding:12px;color:#9aa0a6'>⏳ Analiza w toku…</div>";
         const addr = document.getElementById("address").value.trim();
 
+        // Token i email do weryfikacji serwerowej
+        let token = "";
+        try { token = await Outseta.getAccessToken(); } catch(_){}
+        const email = (profile && profile.Email) ? profile.Email : "";
+
         const resp = await fetch("/analyze", {
           method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": (token ? ("Bearer " + token) : ""),
+            "X-User-Email": email
+          },
           body: new URLSearchParams({ address: addr })
         });
 
@@ -277,7 +320,7 @@
           const data = await resp.json();
           if(resBox){
             let txt = data.error
-              ? ("❌ " + data.error)
+              ? ("❌ " + (data.message || data.error))
               : `Status: ${data.status}\nCzas: ${data.elapsed_sec}s\nAdres: ${data.address}\nCmd: ${data.cmd}\n\nSTDOUT (tail):\n${data.stdout_tail || ""}\n\nSTDERR (tail):\n${data.stderr_tail || ""}`;
             if(data.last_report) txt += `\n\nOstatni raport: ${data.last_report}`;
             resBox.textContent = txt;

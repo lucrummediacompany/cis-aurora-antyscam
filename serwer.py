@@ -10,6 +10,7 @@ CIS Aurora — Local HTTP Server
 """
 from flask import Flask, request, jsonify, send_from_directory
 import subprocess, os, time, re, glob, sys, json
+import requests  # <= REST do Outsety (twarda weryfikacja)
 
 # ------------------- APP CONFIG -------------------
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -18,6 +19,11 @@ LOGS_DIR = os.path.join(APP_ROOT, "LOGS")
 ANALYZER_CMD = "python anty_scam.py {address}"
 ANALYZE_TIMEOUT_SEC = 180
 ADDRESS_RE = re.compile(r"^0x[a-fA-F0-9]{40}$")
+
+# Outseta ENV (Render: OUTSETA_DOMAIN / OUTSETA_API_KEY / OUTSETA_API_SECRET)
+OUTSETA_DOMAIN = os.getenv("OUTSETA_DOMAIN", "").strip()
+OUTSETA_KEY    = os.getenv("OUTSETA_API_KEY", "").strip()
+OUTSETA_SECRET = os.getenv("OUTSETA_API_SECRET", "").strip()
 
 app = Flask(__name__, static_folder="assets", static_url_path="/assets")
 
@@ -58,6 +64,35 @@ def latest_report_path() -> str:
     files.sort(key=os.path.getmtime, reverse=True)
     return files[0]
 
+# ------------------- Outseta REST (server-side gate) -------------------
+def outseta_get(path, params=None):
+    """
+    Prosty GET do Outsety z uwierzytelnieniem serwerowym.
+    """
+    if not (OUTSETA_DOMAIN and OUTSETA_KEY and OUTSETA_SECRET):
+        raise RuntimeError("Outseta ENV not configured")
+    url = f"https://{OUTSETA_DOMAIN}{path}"
+    r = requests.get(url, params=params or {}, auth=(OUTSETA_KEY, OUTSETA_SECRET), timeout=10)
+    r.raise_for_status()
+    return r.json()
+
+def has_active_or_trial(email: str) -> bool:
+    """
+    Zwraca True, jeśli użytkownik (po emailu) ma subskrypcję w stanie Active/Trial/Trialing.
+    """
+    if not email:
+        return False
+    # Najczęściej działa /api/v1/people?search=<email> (lista osób)
+    data = outseta_get("/api/v1/people", params={"search": email})
+    people = data if isinstance(data, list) else data.get("data") or []
+    if not people:
+        return False
+    person = people[0]
+    subs = (person.get("Account") or {}).get("Subscriptions") or []
+    s = subs[0] if subs else None
+    status = (s.get("Status") or s.get("State") or "").lower() if s else ""
+    return status in ("active","trial","trialing")
+
 # ------------------- ROUTES -------------------
 @app.route("/")
 def home():
@@ -85,10 +120,21 @@ def last_report():
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
+    # 1) Gate po stronie serwera — sprawdź subskrypcję po emailu
+    email = (request.headers.get("X-User-Email") or "").strip().lower()
+    try:
+        if not has_active_or_trial(email):
+            return jsonify({"error":"access_denied","message":"Aktywuj plan lub trial w Profil / Płatności."}), 403
+    except Exception as e:
+        # Bezpieczny fallback — blokuj przy błędzie zewnętrznym
+        return jsonify({"error":"subscription_check_failed","message":str(e)}), 403
+
+    # 2) Walidacja adresu
     address = (request.form.get("address") or "").strip()
     if not ADDRESS_RE.match(address):
         return jsonify({"error": "Invalid ETH address. Expected 0x + 40 hex chars."}), 400
 
+    # 3) Analiza (Twoja dotychczasowa mechanika)
     cmd = ANALYZER_CMD.format(address=address)
     start_ts = time.time()
     try:
@@ -233,9 +279,6 @@ def last_report_html():
             badge = _badge_by_score(score)
             bar_w = max(0, min(100, int((score/10.0)*100)))
 
-            # (na przyszłość) wykrycia — teraz pomijamy na UI
-            # detected_keys = _normalize_detected_from_json(report)
-
             # === HEADER ===
             header = f"""
             <div style="padding:16px;margin-bottom:12px;background:#0f1114;border-radius:12px;
@@ -313,13 +356,6 @@ def last_report_html():
             score = 0.0
         badge = _badge_by_score(score)
         bar_w = max(0, min(100, int((score/10.0)*100)))
-
-        # (na UI pomijamy wykrycia)
-        # lower = txt.lower()
-        # detected_keys = []
-        # for sub, tid in MAP_RULES:
-        #     if sub in lower and tid in EYES_DATA and tid not in detected_keys:
-        #         detected_keys.append(tid)
 
         header = f"""
         <div style="padding:16px;margin-bottom:12px;background:#0f1114;border-radius:12px;
