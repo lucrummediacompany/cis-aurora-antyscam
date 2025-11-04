@@ -106,15 +106,8 @@
 
     function setDisplay(el, show){ if(el) el.style.display = show ? "" : "none"; }
     function fmtDate(d){ try { return d.toISOString().slice(0,10); } catch(_) { return ""; } }
-
     function getLower(x){ return (x===undefined||x===null) ? "" : String(x).toLowerCase(); }
-
-    function anyTrialish(...vals){
-      return vals.some(v => {
-        const s = getLower(v);
-        return s.includes("trial"); // „trial”, „trialing”, itp.
-      });
-    }
+    function anyTrialish(...vals){ return vals.some(v => getLower(v).includes("trial")); }
 
     function renderStatus(p){
       if(!p){ setDisplay(statusBar,false); return; }
@@ -142,7 +135,7 @@
       statusState.textContent = "Status: " + state;
     }
 
-    // ✅ Dopuszczamy: statusy subskrypcji lub dowolny sygnał „trial” na Account + aktywna data TrialEnds*
+    // ✅ Dopuszczamy TYLKO: AccountStage ∈ {2,3} lub (active/trial/trialing) albo ważne okno triala
     function canAnalyze(p){
       if(!p || !p.Account) return false;
 
@@ -151,19 +144,27 @@
       const s    = subs.length ? subs[0] : null;
       const subStatus = getLower(s && (s.Status || s.State));
 
-      // 1) Subskrypcja z trial/active
+      // 0) Twarde kody AccountStage ∈ {2 (Trialing), 3 (Subscribed/Active)}
+      let stageCode = acc.AccountStage;
+      try { stageCode = parseInt(stageCode, 10); } catch(_) { stageCode = NaN; }
+      if(stageCode === 2 || stageCode === 3) return true;
+
+      // 1) Subskrypcja: active/trial/trialing
       if(["active","trial","trialing"].includes(subStatus)) return true;
 
-      // 2) Account stage/flags zawierają „trial” (Trialing na koncie)
-      const accStage = getLower(acc.AccountStage || acc.Stage || acc.StageName || acc.Status || p.AccountStage);
-      const accFlags = [acc.IsTrial, acc.IsTrialing, p.IsTrial, p.IsTrialing];
-      if(anyTrialish(accStage) || accFlags.some(Boolean)) return true;
+      // 2) Nazwa etapu zawiera 'trial'
+      const accStageName = String(
+        acc.AccountStageName || acc.StageName || acc.AccountStage || acc.Stage || ""
+      ).toLowerCase();
+      if(accStageName.includes("trial")) return true;
 
-      // 3) Trial time window
-      const trialEndsRaw = acc.TrialEndsAt || acc.TrialEndDate || acc.TrialEndsOn || null;
+      // 3) Okno czasu triala
+      const trialEndsRaw = acc.TrialEnd || acc.TrialEndsAt || acc.TrialEndDate || acc.TrialEndsOn;
       if(trialEndsRaw){
-        const end = new Date(trialEndsRaw);
-        if(!isNaN(end.getTime()) && end.getTime() > Date.now()) return true;
+        const dt = new Date(trialEndsRaw);
+        if(!isNaN(dt.getTime()) && dt.getTime() > Date.now()){
+          return true;
+        }
       }
       return false;
     }

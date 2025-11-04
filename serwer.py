@@ -53,7 +53,11 @@ def outseta_get(path, params=None):
     if not (OUTSETA_DOMAIN and OUTSETA_KEY and OUTSETA_SECRET):
         raise RuntimeError("Outseta ENV not configured")
     url = f"https://{OUTSETA_DOMAIN}{path}"
-    r = requests.get(url, params=params or {}, auth=(OUTSETA_KEY, OUTSETA_SECRET), timeout=10)
+    headers = {
+        "Authorization": f"Outseta {OUTSETA_KEY}:{OUTSETA_SECRET}",
+        "Accept": "application/json",
+    }
+    r = requests.get(url, params=params or {}, headers=headers, timeout=15)
     r.raise_for_status()
     return r.json()
 
@@ -68,47 +72,72 @@ def _iso_to_dt(s: str):
 def _lower(x):
     return "" if x is None else str(x).lower()
 
-def _trialish(*vals):
-    return any("trial" in _lower(v) for v in vals)
-
 def has_active_or_trial(email: str) -> bool:
     """
-    True jeśli:
-      - Subscription.Status/State ∈ {active, trial, trialing}
-      - LUB AccountStage/Stage/flags wskazują trial (np. „Trialing”)
-      - LUB Account.TrialEnds* w przyszłości
+    Dopuszczamy dostęp tylko dla:
+      • AccountStage (kod) ∈ {2, 3}  → 2=Trialing, 3=Subscribed/Active
+      • LUB CurrentSubscription.Status ∈ {active, trial, trialing}
+      • Fallback: nazwa stage zawiera 'trial' lub TrialEnds* w przyszłości
     """
-    if not email: return False
-    data = outseta_get("/api/v1/people", params={"search": email})
-    people = data if isinstance(data, list) else data.get("data") or []
-    if not people: return False
+    if not email:
+        return False
 
-    person = people[0]
-    # czasem Outseta zwraca stage też na person
-    person_stage = person.get("AccountStage") or person.get("Stage")
-
-    account = person.get("Account") or {}
-    subs = account.get("Subscriptions") or []
-    s = subs[0] if subs else None
-    status = _lower(s.get("Status") or s.get("State")) if s else ""
-
-    if status in ("active","trial","trialing"):
-        return True
-
-    # Trial rozpoznawany z wielu pól Account
-    acc_stage = account.get("AccountStage") or account.get("Stage") or account.get("StageName") or account.get("Status")
-    if _trialish(acc_stage, person_stage, account.get("IsTrial"), account.get("IsTrialing"), person.get("IsTrial"), person.get("IsTrialing")):
-        return True
-
-    # Trial oknem czasowym
-    trial_ends = (
-        account.get("TrialEndsAt") or
-        account.get("TrialEndDate") or
-        account.get("TrialEndsOn")
+    fields = (
+        "Uid,FirstName,LastName,Email,"
+        "PersonAccount.*,PersonAccount.IsPrimary,"
+        "PersonAccount.Account.*,PersonAccount.Account.Name,"
+        "PersonAccount.Account.AccountStage,"
+        "PersonAccount.Account.AccountStageName,"
+        "PersonAccount.Account.StageName,"
+        "PersonAccount.Account.TrialEndsAt,"
+        "PersonAccount.Account.TrialEndDate,"
+        "PersonAccount.Account.TrialEndsOn,"
+        "PersonAccount.Account.CurrentSubscription.*"
     )
+    data = outseta_get("/api/v1/crm/people", params={"Email": email, "fields": fields})
+    items = data.get("items", []) if isinstance(data, dict) else []
+    if not items:
+        return False
+
+    person = items[0]
+    pas = person.get("PersonAccount") or []
+    if not pas:
+        return False
+
+    # Preferuj powiązanie główne; jeśli brak — pierwszy
+    pa = next((x for x in pas if x.get("IsPrimary")), pas[0])
+    account = pa.get("Account") or {}
+
+    # 1) Twarde kody stage: 2 (Trialing) lub 3 (Subscribed/Active)
+    stage_code = account.get("AccountStage")
+    try:
+        stage_code_int = int(stage_code)
+    except (TypeError, ValueError):
+        stage_code_int = None
+    if stage_code_int in (2, 3):
+        return True
+
+    # 2) Subskrypcja aktywna / trialująca
+    subs = account.get("CurrentSubscription") or {}
+    sub_status = (subs.get("Status") or subs.get("State") or "").strip().lower()
+    if sub_status in ("active", "trial", "trialing"):
+        return True
+
+    # 3) Nazwa stage zawiera 'trial'
+    stage_name = (
+        account.get("AccountStageName")
+        or account.get("StageName")
+        or str(stage_code if stage_code is not None else "")
+    )
+    if "trial" in str(stage_name).lower():
+        return True
+
+    # 4) Okno czasu triala — jeśli TrialEnds* w przyszłości, traktujemy jak trial
+    trial_ends = account.get("TrialEndsAt") or account.get("TrialEndDate") or account.get("TrialEndsOn")
     dt = _iso_to_dt(trial_ends) if trial_ends else None
     if dt:
-        if not dt.tzinfo: dt = dt.replace(tzinfo=timezone.utc)
+        if not dt.tzinfo:
+            dt = dt.replace(tzinfo=timezone.utc)
         if dt > datetime.now(timezone.utc):
             return True
 
