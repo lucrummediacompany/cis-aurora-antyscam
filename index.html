@@ -108,7 +108,7 @@
     function fmtDate(d){ try { return d.toISOString().slice(0,10); } catch(_) { return ""; } }
     function getLower(x){ return (x===undefined||x===null) ? "" : String(x).toLowerCase(); }
 
-    // 🔧 NOWE: lepsze wyświetlanie planu + status (realny Plan.Name lub Trial)
+    // Wyświetlanie planu i statusu (realny Plan.Name lub Trial)
     function renderStatus(p){
       if(!p){ setDisplay(statusBar,false); return; }
       setDisplay(statusBar,true);
@@ -118,19 +118,16 @@
       const subs  = Array.isArray(acc.Subscriptions) ? acc.Subscriptions : [];
       const s     = subs.length ? subs[0] : null;
 
-      // próbujemy wykryć nazwę planu z kilku miejsc
       let planName =
         (s && s.Plan && s.Plan.Name) ||
         (acc.CurrentSubscription && acc.CurrentSubscription.Plan && acc.CurrentSubscription.Plan.Name) ||
         (acc.Plan && acc.Plan.Name) || "";
 
-      // billing status (jeśli jest)
       let state =
         (s && (s.Status || s.State)) ||
         (acc.CurrentSubscription && (acc.CurrentSubscription.Status || acc.CurrentSubscription.State)) ||
         "";
 
-      // rozpoznanie triala po etapie i/lub dacie zakończenia triala
       let stageCode = acc.AccountStage;
       try { stageCode = parseInt(stageCode,10); } catch(_) { stageCode = NaN; }
       const stageName = String(acc.AccountStageName || acc.StageName || acc.AccountStage || "").toLowerCase();
@@ -142,17 +139,12 @@
         return !isNaN(end.getTime()) && end.getTime() > Date.now();
       })();
 
-      // Jeśli nie mamy planu, ale konto jest w trialu → „Trial”
       if(!planName && (stageCode === 2 || stageName.includes("trial") || trialIsActive)){
         planName = "Trial";
       }
-
-      // Jeśli nie mamy statusu, ale konto jest w trialu → „Trialing” lub data triala
       if(!state && (stageCode === 2 || stageName.includes("trial") || trialIsActive)){
         state = trialIsActive ? ("Trial (do " + fmtDate(new Date(trialEndsRaw)) + ")") : "Trialing";
       }
-
-      // Fallbacki końcowe
       if(!planName) planName = "Brak planu";
       if(!state)    state    = "Brak aktywnej subskrypcji";
 
@@ -161,7 +153,7 @@
       statusState.textContent = "Status: " + state;
     }
 
-    // ✅ Gating: aktywny przycisk tylko dla Stage 2/3, lub aktywnego billing/trial, albo trwającego okna triala
+    // Gating przycisku: tylko Stage 2/3, billing active/trial/trialing, lub ważne okno triala
     function canAnalyze(p){
       if(!p || !p.Account) return false;
 
@@ -170,21 +162,17 @@
       const s    = subs.length ? subs[0] : null;
       const subStatus = getLower(s && (s.Status || s.State));
 
-      // 0) Twarde kody AccountStage ∈ {2 (Trialing), 3 (Subscribed/Active)}
       let stageCode = acc.AccountStage;
       try { stageCode = parseInt(stageCode, 10); } catch(_) { stageCode = NaN; }
       if(stageCode === 2 || stageCode === 3) return true;
 
-      // 1) Subskrypcja: active/trial/trialing
       if(["active","trial","trialing"].includes(subStatus)) return true;
 
-      // 2) Nazwa etapu zawiera 'trial'
       const accStageName = String(
         acc.AccountStageName || acc.StageName || acc.AccountStage || acc.Stage || ""
       ).toLowerCase();
       if(accStageName.includes("trial")) return true;
 
-      // 3) Okno czasu triala
       const trialEndsRaw = acc.TrialEnd || acc.TrialEndsAt || acc.TrialEndDate || acc.TrialEndsOn;
       if(trialEndsRaw){
         const dt = new Date(trialEndsRaw);
@@ -195,7 +183,6 @@
       return false;
     }
 
-    function setDisplay(el, show){ if(el) el.style.display = show ? "" : "none"; } // (dupe-safe)
     function renderGate(){
       if(isAuthed){
         setDisplay(deniedCard,false);

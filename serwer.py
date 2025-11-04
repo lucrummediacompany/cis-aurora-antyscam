@@ -8,16 +8,22 @@ from datetime import datetime, timezone
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 ANALYZE_DIR = os.path.join(APP_ROOT, "ANALYZE")
 LOGS_DIR = os.path.join(APP_ROOT, "LOGS")
+
+# ⬇️ Twój analizator (zostawiamy jak było)
 ANALYZER_CMD = "python anty_scam.py {address}"
 ANALYZE_TIMEOUT_SEC = 180
+
+# ETH address regex
 ADDRESS_RE = re.compile(r"^0x[a-fA-F0-9]{40}$")
 
+# Outseta ENV (opcjonalne)
 OUTSETA_DOMAIN = os.getenv("OUTSETA_DOMAIN", "").strip()
 OUTSETA_KEY    = os.getenv("OUTSETA_API_KEY", "").strip()
 OUTSETA_SECRET = os.getenv("OUTSETA_API_SECRET", "").strip()
 
 app = Flask(__name__, static_folder="assets", static_url_path="/assets")
 
+# --------- EYES overlay (bez zmian) ----------
 EYES_PATH = os.path.join(APP_ROOT, "eyes.json")
 EYES_DATA = {}
 EYES_ORDER = []
@@ -48,10 +54,14 @@ def latest_report_path() -> str:
     files.sort(key=os.path.getmtime, reverse=True)
     return files[0]
 
-# ---------- Outseta REST ----------
+# ---------- Outseta helpers ----------
+def _outseta_configured() -> bool:
+    return bool(OUTSETA_DOMAIN and OUTSETA_KEY and OUTSETA_SECRET)
+
 def outseta_get(path, params=None):
-    if not (OUTSETA_DOMAIN and OUTSETA_KEY and OUTSETA_SECRET):
-        raise RuntimeError("Outseta ENV not configured")
+    # Jeśli Outseta nie jest skonfigurowana – sygnalizujemy to łagodnie
+    if not _outseta_configured():
+        raise RuntimeError("OUTSETA_DISABLED")
     url = f"https://{OUTSETA_DOMAIN}{path}"
     headers = {
         "Authorization": f"Outseta {OUTSETA_KEY}:{OUTSETA_SECRET}",
@@ -69,18 +79,20 @@ def _iso_to_dt(s: str):
     except Exception:
         return None
 
-def _lower(x):
-    return "" if x is None else str(x).lower()
-
 def has_active_or_trial(email: str) -> bool:
     """
-    Dopuszczamy dostęp tylko dla:
-      • AccountStage (kod) ∈ {2, 3}  → 2=Trialing, 3=Subscribed/Active
+    Dostęp tylko dla:
+      • AccountStage ∈ {2, 3} (2=Trialing, 3=Subscribed/Active)
       • LUB CurrentSubscription.Status ∈ {active, trial, trialing}
-      • Fallback: nazwa stage zawiera 'trial' lub TrialEnds* w przyszłości
+      • Fallback: 'trial' w nazwie etapu lub TrialEnds* w przyszłości
+
+    Jeśli Outseta ENV nie ustawione → True (nie blokujemy analizy; front nadal pilnuje).
     """
     if not email:
         return False
+
+    if not _outseta_configured():
+        return True
 
     fields = (
         "Uid,FirstName,LastName,Email,"
@@ -104,11 +116,10 @@ def has_active_or_trial(email: str) -> bool:
     if not pas:
         return False
 
-    # Preferuj powiązanie główne; jeśli brak — pierwszy
     pa = next((x for x in pas if x.get("IsPrimary")), pas[0])
     account = pa.get("Account") or {}
 
-    # 1) Twarde kody stage: 2 (Trialing) lub 3 (Subscribed/Active)
+    # 1) twarde kody
     stage_code = account.get("AccountStage")
     try:
         stage_code_int = int(stage_code)
@@ -117,13 +128,13 @@ def has_active_or_trial(email: str) -> bool:
     if stage_code_int in (2, 3):
         return True
 
-    # 2) Subskrypcja aktywna / trialująca
+    # 2) billing status
     subs = account.get("CurrentSubscription") or {}
     sub_status = (subs.get("Status") or subs.get("State") or "").strip().lower()
     if sub_status in ("active", "trial", "trialing"):
         return True
 
-    # 3) Nazwa stage zawiera 'trial'
+    # 3) nazwa etapu „trial”
     stage_name = (
         account.get("AccountStageName")
         or account.get("StageName")
@@ -132,7 +143,7 @@ def has_active_or_trial(email: str) -> bool:
     if "trial" in str(stage_name).lower():
         return True
 
-    # 4) Okno czasu triala — jeśli TrialEnds* w przyszłości, traktujemy jak trial
+    # 4) okno triala
     trial_ends = account.get("TrialEndsAt") or account.get("TrialEndDate") or account.get("TrialEndsOn")
     dt = _iso_to_dt(trial_ends) if trial_ends else None
     if dt:
@@ -171,11 +182,15 @@ def last_report():
 @app.route("/analyze", methods=["POST"])
 def analyze():
     email = (request.headers.get("X-User-Email") or "").strip().lower()
+
+    # ✅ Backend gating tylko gdy Outseta skonfigurowana; inaczej nie blokujemy
     try:
-        if not has_active_or_trial(email):
-            return jsonify({"error":"access_denied","message":"Aktywuj plan lub trial w Profil / Płatności."}), 403
+        if _outseta_configured():
+            if not has_active_or_trial(email):
+                return jsonify({"error":"access_denied","message":"Aktywuj plan lub trial w Profil / Płatności."}), 403
     except Exception as e:
-        return jsonify({"error":"subscription_check_failed","message":str(e)}), 403
+        if str(e) != "OUTSETA_DISABLED":
+            return jsonify({"error":"subscription_check_failed","message":str(e)}), 403
 
     address = (request.form.get("address") or "").strip()
     if not ADDRESS_RE.match(address):
@@ -207,7 +222,7 @@ def analyze():
 def assets(filename):
     return send_from_directory(os.path.join(APP_ROOT, "assets"), filename)
 
-# ---------- HTML overlay (jak wcześniej) ----------
+# ---------- HTML overlay (bez zmian funkcjonalnych) ----------
 def _parse_first_line_csv(txt: str):
     for ln in txt.splitlines():
         s = ln.strip()
