@@ -60,17 +60,23 @@ def outseta_get(path, params=None):
 def _iso_to_dt(s: str):
     if not s: return None
     try:
-        # Obsłuż Z / offset
         s_norm = s.replace("Z", "+00:00")
         return datetime.fromisoformat(s_norm)
     except Exception:
         return None
 
+def _lower(x):
+    return "" if x is None else str(x).lower()
+
+def _trialish(*vals):
+    return any("trial" in _lower(v) for v in vals)
+
 def has_active_or_trial(email: str) -> bool:
     """
     True jeśli:
-      - istnieje Subscription.Status/State ∈ {active,trial,trialing}
-      - LUB Account.TrialEndsAt w przyszłości (trial bez subskrypcji)
+      - Subscription.Status/State ∈ {active, trial, trialing}
+      - LUB AccountStage/Stage/flags wskazują trial (np. „Trialing”)
+      - LUB Account.TrialEnds* w przyszłości
     """
     if not email: return False
     data = outseta_get("/api/v1/people", params={"search": email})
@@ -78,21 +84,32 @@ def has_active_or_trial(email: str) -> bool:
     if not people: return False
 
     person = people[0]
+    # czasem Outseta zwraca stage też na person
+    person_stage = person.get("AccountStage") or person.get("Stage")
+
     account = person.get("Account") or {}
     subs = account.get("Subscriptions") or []
     s = subs[0] if subs else None
-    status = (s.get("Status") or s.get("State") or "").lower() if s else ""
+    status = _lower(s.get("Status") or s.get("State")) if s else ""
 
     if status in ("active","trial","trialing"):
         return True
 
-    trial_ends = _iso_to_dt(account.get("TrialEndsAt") or "")
-    if trial_ends:
-        # porównujemy w UTC
-        now = datetime.now(timezone.utc)
-        # jeśli trial_ends nie ma tzinfo — załóż UTC
-        if not trial_ends.tzinfo: trial_ends = trial_ends.replace(tzinfo=timezone.utc)
-        if trial_ends > now:
+    # Trial rozpoznawany z wielu pól Account
+    acc_stage = account.get("AccountStage") or account.get("Stage") or account.get("StageName") or account.get("Status")
+    if _trialish(acc_stage, person_stage, account.get("IsTrial"), account.get("IsTrialing"), person.get("IsTrial"), person.get("IsTrialing")):
+        return True
+
+    # Trial oknem czasowym
+    trial_ends = (
+        account.get("TrialEndsAt") or
+        account.get("TrialEndDate") or
+        account.get("TrialEndsOn")
+    )
+    dt = _iso_to_dt(trial_ends) if trial_ends else None
+    if dt:
+        if not dt.tzinfo: dt = dt.replace(tzinfo=timezone.utc)
+        if dt > datetime.now(timezone.utc):
             return True
 
     return False
@@ -161,7 +178,7 @@ def analyze():
 def assets(filename):
     return send_from_directory(os.path.join(APP_ROOT, "assets"), filename)
 
-# ---------- HTML overlay (bez zmian logiki merytorycznej) ----------
+# ---------- HTML overlay (jak wcześniej) ----------
 def _parse_first_line_csv(txt: str):
     for ln in txt.splitlines():
         s = ln.strip()
@@ -277,7 +294,6 @@ def last_report_html():
             analyze_html = ("<div style='margin-top:16px;margin-bottom:6px;font-weight:700;border-left:4px solid #3b82f6;padding-left:8px'>Co analizujemy (stałe obszary audytu)</div>" + "".join(pair_rows))
             return header + detected_html + analyze_html, 200, {"Content-Type": "text/html; charset=utf-8"}
 
-        # TXT fallback
         txt = open(path, "r", encoding="utf-8", errors="ignore").read()
         item = _parse_first_line_csv(txt) or {"name": "?", "address": "?", "score": "0", "label": "RISK"}
         name = item.get("name", "?"); addr = item.get("address", "?")

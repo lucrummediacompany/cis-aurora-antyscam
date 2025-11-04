@@ -32,8 +32,6 @@
     .status-bar { margin: 10px 0 6px 0; padding: 10px 12px; border: 1px solid #2a2e37; border-radius: 10px; background: #101421; font-size: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .status-bar .left { display:flex; gap:10px; align-items:center; }
     .status-pill{ padding: 4px 8px; border-radius: 999px; background: #1f2330; border: 1px solid #2a2e37; font-size: 12px; color: #e6e7ea; }
-    .stripe-note { margin: 8px 0 10px 0; padding: 10px 12px; border: 1px solid #2a2e37; border-radius: 10px; background: #101421; font-size: 14px; }
-    .stripe-note b { font-weight: 700; }
     .denied { text-align: center; padding: 28px; border: 1px dashed #2a2e37; background: linear-gradient(180deg,#121520,#0e1018); }
     .denied h3 { margin: 0 0 6px 0; }
     .cta-row { display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
@@ -101,38 +99,36 @@
     const statusUser  = document.getElementById("statusUser");
     const statusPlan  = document.getElementById("statusPlan");
     const statusState = document.getElementById("statusState");
-
     const analyzeBtn  = document.querySelector("#analyzeCard button.primary");
-    let paywallNote   = null;
 
     let isAuthed = false;
     let profile  = null;
 
     function setDisplay(el, show){ if(el) el.style.display = show ? "" : "none"; }
+    function fmtDate(d){ try { return d.toISOString().slice(0,10); } catch(_) { return ""; } }
 
-    function fmtDate(d){
-      try { return d.toISOString().slice(0,10); } catch(_) { return ""; }
+    function getLower(x){ return (x===undefined||x===null) ? "" : String(x).toLowerCase(); }
+
+    function anyTrialish(...vals){
+      return vals.some(v => {
+        const s = getLower(v);
+        return s.includes("trial"); // „trial”, „trialing”, itp.
+      });
     }
 
     function renderStatus(p){
-      if(!p){
-        setDisplay(statusBar, false);
-        statusUser.textContent  = "—";
-        statusPlan.textContent  = "Plan: —";
-        statusState.textContent = "Status: —";
-        return;
-      }
-      setDisplay(statusBar, true);
+      if(!p){ setDisplay(statusBar,false); return; }
+      setDisplay(statusBar,true);
 
       const email = p.Email || "—";
-      const subs = (p.Account && p.Account.Subscriptions) ? p.Account.Subscriptions : [];
-      const first = subs && subs.length ? subs[0] : null;
+      const acc   = p.Account || {};
+      const subs  = Array.isArray(acc.Subscriptions) ? acc.Subscriptions : [];
+      const first = subs.length ? subs[0] : null;
 
       let planName = (first && first.Plan && first.Plan.Name) ? first.Plan.Name : "Trial / Brak planu";
       let state    = (first && (first.Status || first.State)) ? (first.Status || first.State) : "Brak aktywnej subskrypcji";
 
-      // Jeśli brak suba, ale konto jest w trialu — pokaż to czytelnie
-      const trialEndsRaw = p.Account && p.Account.TrialEndsAt ? p.Account.TrialEndsAt : null;
+      const trialEndsRaw = acc.TrialEndsAt || acc.TrialEndDate || acc.TrialEndsOn || null;
       if(!first && trialEndsRaw){
         const end = new Date(trialEndsRaw);
         if(!isNaN(end.getTime()) && end.getTime() > Date.now()){
@@ -146,18 +142,25 @@
       statusState.textContent = "Status: " + state;
     }
 
-    // ✅ Dopuszczamy: Subscription in Active/Trial/Trialing LUB Account.TrialEndsAt w przyszłości
+    // ✅ Dopuszczamy: statusy subskrypcji lub dowolny sygnał „trial” na Account + aktywna data TrialEnds*
     function canAnalyze(p){
       if(!p || !p.Account) return false;
 
-      // 1) Subskrypcja
-      const subs = p.Account.Subscriptions || [];
-      const s = subs.length ? subs[0] : null;
-      const status = (s && (s.Status || s.State) ? (s.Status || s.State) : "").toLowerCase();
-      if(["active","trial","trialing"].includes(status)) return true;
+      const acc  = p.Account || {};
+      const subs = Array.isArray(acc.Subscriptions) ? acc.Subscriptions : [];
+      const s    = subs.length ? subs[0] : null;
+      const subStatus = getLower(s && (s.Status || s.State));
 
-      // 2) Czysty trial na koncie bez subskrypcji
-      const trialEndsRaw = p.Account.TrialEndsAt || null;
+      // 1) Subskrypcja z trial/active
+      if(["active","trial","trialing"].includes(subStatus)) return true;
+
+      // 2) Account stage/flags zawierają „trial” (Trialing na koncie)
+      const accStage = getLower(acc.AccountStage || acc.Stage || acc.StageName || acc.Status || p.AccountStage);
+      const accFlags = [acc.IsTrial, acc.IsTrialing, p.IsTrial, p.IsTrialing];
+      if(anyTrialish(accStage) || accFlags.some(Boolean)) return true;
+
+      // 3) Trial time window
+      const trialEndsRaw = acc.TrialEndsAt || acc.TrialEndDate || acc.TrialEndsOn || null;
       if(trialEndsRaw){
         const end = new Date(trialEndsRaw);
         if(!isNaN(end.getTime()) && end.getTime() > Date.now()) return true;
@@ -167,30 +170,30 @@
 
     function renderGate(){
       if(isAuthed){
-        setDisplay(deniedCard, false);
-        setDisplay(analyzeCard, true);
-        setDisplay(resultCard, true);
+        setDisplay(deniedCard,false);
+        setDisplay(analyzeCard,true);
+        setDisplay(resultCard,true);
 
         const allowed = canAnalyze(profile);
-
         if (analyzeBtn){
           analyzeBtn.disabled = !allowed;
           analyzeBtn.title = allowed ? "" : "Wymagana aktywna subskrypcja lub aktywny trial.";
         }
 
-        if (!paywallNote){
-          paywallNote = document.createElement("div");
-          paywallNote.style.cssText = "margin-top:10px;font-size:14px;padding:10px;border:1px solid #2a2e37;border-radius:8px;background:#101421;color:#9aa0a6;";
-          analyzeCard.appendChild(paywallNote);
+        let note = document.getElementById("paywallNote");
+        if(!note){
+          note = document.createElement("div");
+          note.id = "paywallNote";
+          note.style.cssText = "margin-top:10px;font-size:14px;padding:10px;border:1px solid #2a2e37;border-radius:8px;background:#101421;color:#9aa0a6;";
+          analyzeCard.appendChild(note);
         }
-        paywallNote.textContent = canAnalyze(profile)
+        note.textContent = allowed
           ? "✅ Masz dostęp do analizy (plan aktywny lub trial)."
           : "🔒 Dostęp zablokowany: aktywuj plan. Kliknij przycisk „Profil / Płatności” powyżej.";
-
       }else{
-        setDisplay(analyzeCard, false);
-        setDisplay(resultCard, false);
-        setDisplay(deniedCard, true);
+        setDisplay(analyzeCard,false);
+        setDisplay(resultCard,false);
+        setDisplay(deniedCard,true);
       }
     }
 
@@ -199,9 +202,7 @@
         const payload = await Outseta.getJwtPayload();
         isAuthed = !!payload;
         profile = isAuthed ? await Outseta.getUser() : null;
-      }catch(_){
-        isAuthed = false; profile = null;
-      }
+      }catch(_){ isAuthed=false; profile=null; }
       renderStatus(profile);
       renderGate();
     }
@@ -213,7 +214,7 @@
     if(form){
       form.addEventListener("submit", async (e)=>{
         e.preventDefault();
-        if(!isAuthed){ setDisplay(deniedCard, true); return; }
+        if(!isAuthed){ setDisplay(deniedCard,true); return; }
         if(!canAnalyze(profile)){
           htmlBox.textContent = "🔒 Wymagana aktywna subskrypcja lub trial. Użyj przycisku „Profil / Płatności”.";
           return;
