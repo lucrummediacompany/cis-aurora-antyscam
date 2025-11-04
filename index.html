@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-  <!-- Outseta embed (auth + profile + nocode widgets) -->
   <script>
     var o_options = {
       domain: 'lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com',
@@ -16,109 +15,26 @@
 
   <style>
     :root { color-scheme: dark; }
-    body {
-      font-family: Arial, sans-serif;
-      margin: 32px;
-      background: #0e0f13;
-      color: #e6e7ea;
-    }
+    body { font-family: Arial, sans-serif; margin: 32px; background: #0e0f13; color: #e6e7ea; }
     .wrap { max-width: 900px; margin: auto; }
     h1 { margin-bottom: 8px; }
-
-    .card {
-      border: 1px solid #2a2e37;
-      border-radius: 12px;
-      padding: 16px;
-      margin-top: 16px;
-      background: #141720;
-      box-shadow: 0 2px 10px rgba(0,0,0,.4);
-    }
-
-    input[type=text]{
-      width: 100%;
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid #2a2e37;
-      background: #0f1220;
-      color: #e6e7ea;
-    }
-
-    button {
-      padding: 10px 16px;
-      border-radius: 8px;
-      border: none;
-      cursor: pointer;
-      transition: all .2s ease-in-out;
-    }
+    .card { border: 1px solid #2a2e37; border-radius: 12px; padding: 16px; margin-top: 16px; background: #141720; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+    input[type=text]{ width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #2a2e37; background: #0f1220; color: #e6e7ea; }
+    button { padding: 10px 16px; border-radius: 8px; border: none; cursor: pointer; transition: all .2s ease-in-out; }
     button.primary { background: #1f2330; color: #e6e7ea; }
     button.primary:hover { background: #2b3242; }
-
-    pre {
-      white-space: pre-wrap;
-      background: #0f1220;
-      padding: 12px;
-      border-radius: 8px;
-      max-height: 480px;
-      overflow: auto;
-      color: #e6e7ea;
-    }
-
+    pre { white-space: pre-wrap; background: #0f1220; padding: 12px; border-radius: 8px; max-height: 480px; overflow: auto; color: #e6e7ea; }
     .muted { color: #9aa0a6; font-size: 14px; }
     .row { display: flex; gap: 8px; margin-top: 8px; }
-
     nav.row { margin-bottom: 12px; }
-    nav.row a.button{
-      text-decoration: none;
-      background: #1f2330;
-      color: #e6e7ea;
-      padding: 8px 14px;
-      border-radius: 8px;
-      transition: background .2s;
-    }
+    nav.row a.button{ text-decoration: none; background: #1f2330; color: #e6e7ea; padding: 8px 14px; border-radius: 8px; transition: background .2s; }
     nav.row a.button:hover { background: #2b3242; }
-
-    /* Pasek statusu (po zalogowaniu pokaże email/plan/status) */
-    .status-bar {
-      margin: 10px 0 6px 0;
-      padding: 10px 12px;
-      border: 1px solid #2a2e37;
-      border-radius: 10px;
-      background: #101421;
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
+    .status-bar { margin: 10px 0 6px 0; padding: 10px 12px; border: 1px solid #2a2e37; border-radius: 10px; background: #101421; font-size: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .status-bar .left { display:flex; gap:10px; align-items:center; }
-    .status-pill{
-      padding: 4px 8px;
-      border-radius: 999px;
-      background: #1f2330;
-      border: 1px solid #2a2e37;
-      font-size: 12px;
-      color: #e6e7ea;
-    }
-
-    /* Informacja o Stripe */
-    .stripe-note {
-      margin: 8px 0 10px 0;
-      padding: 10px 12px;
-      border: 1px solid #2a2e37;
-      border-radius: 10px;
-      background: #101421;
-      font-size: 14px;
-    }
+    .status-pill{ padding: 4px 8px; border-radius: 999px; background: #1f2330; border: 1px solid #2a2e37; font-size: 12px; color: #e6e7ea; }
+    .stripe-note { margin: 8px 0 10px 0; padding: 10px 12px; border: 1px solid #2a2e37; border-radius: 10px; background: #101421; font-size: 14px; }
     .stripe-note b { font-weight: 700; }
-
-    /* Karta braku dostępu dla niezalogowanych */
-    .denied {
-      text-align: center;
-      padding: 28px;
-      border: 1px dashed #2a2e37;
-      background: linear-gradient(180deg,#121520,#0e1018);
-    }
+    .denied { text-align: center; padding: 28px; border: 1px dashed #2a2e37; background: linear-gradient(180deg,#121520,#0e1018); }
     .denied h3 { margin: 0 0 6px 0; }
     .cta-row { display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
     .cta-row a.button { background:#2b3242; }
@@ -131,7 +47,6 @@
     <h1>🧠 CIS Aurora — AntyScam (Local)</h1>
     <p class="muted">Wklej adres kontraktu ETH, uruchom analizę i zobacz wynik. Serwer: Flask (port 5000).</p>
 
-    <!-- 🔐 Pasek logowania Outseta -->
     <nav class="row">
       <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=register#o-anonymous">Załóż konto (trial 3 dni)</a>
       <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=login#o-anonymous">Zaloguj</a>
@@ -139,7 +54,6 @@
       <a class="button" href="#o-logout-link">Wyloguj</a>
     </nav>
 
-    <!-- 🧾 Pasek statusu użytkownika/subskrypcji (wypełniany po zalogowaniu) -->
     <div id="statusBar" class="status-bar" style="display:none">
       <div class="left">
         <span id="statusUser" class="status-pill">—</span>
@@ -149,7 +63,6 @@
       <div class="right muted">Płatności obsługuje <b>Stripe</b>.</div>
     </div>
 
-    <!-- 🔒 Karta „brak dostępu” (dla niezalogowanych) -->
     <div id="deniedCard" class="card denied" style="display:none">
       <h3>🔒 Brak dostępu do analizy</h3>
       <p class="muted">Ta funkcja jest dostępna tylko dla zalogowanych użytkowników. Utwórz konto i korzystaj z 3-dniowego triala.</p>
@@ -160,7 +73,6 @@
       </div>
     </div>
 
-    <!-- 🧪 Karta analizy (pokazujemy tylko zalogowanym) -->
     <div id="analyzeCard" class="card" style="display:none">
       <form id="form">
         <label>Adres kontraktu (0x...):</label>
@@ -179,29 +91,27 @@
   </div>
 
   <script>
-    // UI refs
     const form        = document.getElementById("form");
     const resBox      = document.getElementById("result");
     const htmlBox     = document.getElementById("overlayHTML");
     const analyzeCard = document.getElementById("analyzeCard");
     const deniedCard  = document.getElementById("deniedCard");
     const resultCard  = document.getElementById("resultCard");
-
     const statusBar   = document.getElementById("statusBar");
     const statusUser  = document.getElementById("statusUser");
     const statusPlan  = document.getElementById("statusPlan");
     const statusState = document.getElementById("statusState");
 
-    // Dodatkowe referencje
     const analyzeBtn  = document.querySelector("#analyzeCard button.primary");
     let paywallNote   = null;
 
     let isAuthed = false;
     let profile  = null;
 
-    function setDisplay(el, show){
-      if(!el) return;
-      el.style.display = show ? "" : "none";
+    function setDisplay(el, show){ if(el) el.style.display = show ? "" : "none"; }
+
+    function fmtDate(d){
+      try { return d.toISOString().slice(0,10); } catch(_) { return ""; }
     }
 
     function renderStatus(p){
@@ -213,24 +123,46 @@
         return;
       }
       setDisplay(statusBar, true);
+
       const email = p.Email || "—";
-      // Spróbuj odczytać plan i status z profilu (gdy są subskrypcje)
       const subs = (p.Account && p.Account.Subscriptions) ? p.Account.Subscriptions : [];
       const first = subs && subs.length ? subs[0] : null;
-      const planName = (first && first.Plan && first.Plan.Name) ? first.Plan.Name : "Trial / Brak planu";
-      const state    = (first && (first.Status || first.State)) ? (first.Status || first.State) : "Brak aktywnej subskrypcji";
+
+      let planName = (first && first.Plan && first.Plan.Name) ? first.Plan.Name : "Trial / Brak planu";
+      let state    = (first && (first.Status || first.State)) ? (first.Status || first.State) : "Brak aktywnej subskrypcji";
+
+      // Jeśli brak suba, ale konto jest w trialu — pokaż to czytelnie
+      const trialEndsRaw = p.Account && p.Account.TrialEndsAt ? p.Account.TrialEndsAt : null;
+      if(!first && trialEndsRaw){
+        const end = new Date(trialEndsRaw);
+        if(!isNaN(end.getTime()) && end.getTime() > Date.now()){
+          planName = "Trial";
+          state    = "Trial (do " + fmtDate(end) + ")";
+        }
+      }
 
       statusUser.textContent  = email;
       statusPlan.textContent  = "Plan: " + planName;
       statusState.textContent = "Status: " + state;
     }
 
-    // ✅ tylko Active/Trial/Trialing mają dostęp do analizy
+    // ✅ Dopuszczamy: Subscription in Active/Trial/Trialing LUB Account.TrialEndsAt w przyszłości
     function canAnalyze(p){
-      const subs = (p?.Account?.Subscriptions) || [];
+      if(!p || !p.Account) return false;
+
+      // 1) Subskrypcja
+      const subs = p.Account.Subscriptions || [];
       const s = subs.length ? subs[0] : null;
-      const status = (s?.Status || s?.State || "").toLowerCase();
-      return ["active","trial","trialing"].includes(status);
+      const status = (s && (s.Status || s.State) ? (s.Status || s.State) : "").toLowerCase();
+      if(["active","trial","trialing"].includes(status)) return true;
+
+      // 2) Czysty trial na koncie bez subskrypcji
+      const trialEndsRaw = p.Account.TrialEndsAt || null;
+      if(trialEndsRaw){
+        const end = new Date(trialEndsRaw);
+        if(!isNaN(end.getTime()) && end.getTime() > Date.now()) return true;
+      }
+      return false;
     }
 
     function renderGate(){
@@ -243,7 +175,7 @@
 
         if (analyzeBtn){
           analyzeBtn.disabled = !allowed;
-          analyzeBtn.title = allowed ? "" : "Wymagana aktywna subskrypcja (lub trial).";
+          analyzeBtn.title = allowed ? "" : "Wymagana aktywna subskrypcja lub aktywny trial.";
         }
 
         if (!paywallNote){
@@ -251,9 +183,9 @@
           paywallNote.style.cssText = "margin-top:10px;font-size:14px;padding:10px;border:1px solid #2a2e37;border-radius:8px;background:#101421;color:#9aa0a6;";
           analyzeCard.appendChild(paywallNote);
         }
-        paywallNote.innerHTML = canAnalyze(profile)
+        paywallNote.textContent = canAnalyze(profile)
           ? "✅ Masz dostęp do analizy (plan aktywny lub trial)."
-          : "🔒 Dostęp zablokowany: aktywuj plan w <a href='https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/profile#o-authenticated' style='color:#cfd3ff'>Profil / Płatności</a>.";
+          : "🔒 Dostęp zablokowany: aktywuj plan. Kliknij przycisk „Profil / Płatności” powyżej.";
 
       }else{
         setDisplay(analyzeCard, false);
@@ -264,44 +196,32 @@
 
     async function refreshAuthState(){
       try{
-        // Szybki check: payload JWT (może być null, gdy niezalogowany)
         const payload = await Outseta.getJwtPayload();
         isAuthed = !!payload;
-        // Pełny profil (zawiera m.in. dane konta i subskrypcji)
         profile = isAuthed ? await Outseta.getUser() : null;
       }catch(_){
-        isAuthed = false;
-        profile = null;
+        isAuthed = false; profile = null;
       }
       renderStatus(profile);
       renderGate();
     }
 
-    // Zdarzenia z Outsety — reagujemy na login/logout/odświeżenie tokena
-    Outseta.on('accessToken.set', refreshAuthState); // po zalogowaniu
-    Outseta.on('logout', refreshAuthState);          // po wylogowaniu
-
-    // Start: sprawdź stan autoryzacji
+    Outseta.on('accessToken.set', refreshAuthState);
+    Outseta.on('logout', refreshAuthState);
     refreshAuthState();
 
-    // Obsługa formularza analizy (blok + nagłówki do backendu)
     if(form){
       form.addEventListener("submit", async (e)=>{
         e.preventDefault();
-        if(!isAuthed){
-          // Dodatkowa ochrona UI
-          setDisplay(deniedCard, true);
-          return;
-        }
+        if(!isAuthed){ setDisplay(deniedCard, true); return; }
         if(!canAnalyze(profile)){
-          htmlBox.innerHTML = "<div style='padding:12px;color:#ffb4b4'>🔒 Wymagana aktywna subskrypcja lub trial. Aktywuj plan w Profil / Płatności.</div>";
+          htmlBox.textContent = "🔒 Wymagana aktywna subskrypcja lub trial. Użyj przycisku „Profil / Płatności”.";
           return;
         }
 
         htmlBox.innerHTML = "<div style='padding:12px;color:#9aa0a6'>⏳ Analiza w toku…</div>";
         const addr = document.getElementById("address").value.trim();
 
-        // Token i email do weryfikacji serwerowej
         let token = "";
         try { token = await Outseta.getAccessToken(); } catch(_){}
         const email = (profile && profile.Email) ? profile.Email : "";
@@ -326,11 +246,8 @@
             resBox.textContent = txt;
             resBox.style.display = "block";
           }
-        }catch(_){
-          // Ignoruj JSON parse error i po prostu pokaż HTML warstwy
-        }
+        }catch(_){}
 
-        // Po wywołaniu analizy poproś o HTML raportu (ładna warstwa)
         try{
           const r = await fetch("/last-report-html");
           const txt = await r.text();
