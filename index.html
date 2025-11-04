@@ -25,203 +25,278 @@
     .wrap { max-width: 900px; margin: auto; }
     h1 { margin-bottom: 8px; }
 
-    .btn {
-      background: #1f2937;
-      color: #e6e7ea;
-      border: 1px solid #334155;
-      border-radius: 8px;
-      padding: 8px 12px;
-      cursor: pointer;
-      transition: transform .05s ease, background .2s;
-    }
-    .btn:hover { background: #243244; }
-    .btn:active { transform: translateY(1px); }
-
-    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-
-    .stripe-note {
-      display: inline-block;
-      margin: 12px 0 18px 0;
-      padding: 8px 12px;
-      border: 1px dashed #334155;
-      border-radius: 8px;
-      background: #0f172a;
-      color: #b9c2d0;
-      font-size: 0.95rem;
-    }
-  /* Dynamic billing badges */
-  .stripe-note.badge--trial{background:rgba(255,200,0,.08);color:#ffd479;border-color:rgba(255,200,0,.25);}
-  .stripe-note.badge--active{background:rgba(0,200,140,.08);color:#73f3cc;border-color:rgba(0,200,140,.25);}
     .card {
-      border: 1px solid #1f2937;
-      background: #0f1623;
+      border: 1px solid #2a2e37;
       border-radius: 12px;
-      padding: 14px;
+      padding: 16px;
+      margin-top: 16px;
+      background: #141720;
+      box-shadow: 0 2px 10px rgba(0,0,0,.4);
     }
-    .card h3 { margin: 0 0 10px 0; }
 
-    .input {
+    input[type=text]{
       width: 100%;
-      background: #0c1320;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #2a2e37;
+      background: #0f1220;
       color: #e6e7ea;
-      border: 1px solid #243244;
-      border-radius: 10px;
+    }
+
+    button {
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: all .2s ease-in-out;
+    }
+    button.primary { background: #1f2330; color: #e6e7ea; }
+    button.primary:hover { background: #2b3242; }
+
+    pre {
+      white-space: pre-wrap;
+      background: #0f1220;
+      padding: 12px;
+      border-radius: 8px;
+      max-height: 480px;
+      overflow: auto;
+      color: #e6e7ea;
+    }
+
+    .muted { color: #9aa0a6; font-size: 14px; }
+    .row { display: flex; gap: 8px; margin-top: 8px; }
+
+    nav.row { margin-bottom: 12px; }
+    nav.row a.button{
+      text-decoration: none;
+      background: #1f2330;
+      color: #e6e7ea;
+      padding: 8px 14px;
+      border-radius: 8px;
+      transition: background .2s;
+    }
+    nav.row a.button:hover { background: #2b3242; }
+
+    /* Pasek statusu (po zalogowaniu pokaże email/plan/status) */
+    .status-bar {
+      margin: 10px 0 6px 0;
       padding: 10px 12px;
-      outline: none;
+      border: 1px solid #2a2e37;
+      border-radius: 10px;
+      background: #101421;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
     }
-    .input:focus { border-color: #3b82f6; }
-
-    .pill {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 9999px;
-      font-weight: 700;
-      font-size: 0.85rem;
+    .status-bar .left { display:flex; gap:10px; align-items:center; }
+    .status-pill{
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #1f2330;
+      border: 1px solid #2a2e37;
+      font-size: 12px;
+      color: #e6e7ea;
     }
-    .pill.good { background: #0b2f27; color: #81f2d2; border: 1px solid #184e42; }
-    .pill.risk { background: #2f210b; color: #f2c681; border: 1px solid #5a4117; }
-    .pill.bad { background: #2f0b0b; color: #f28181; border: 1px solid #5a1717; }
 
-    .grid { display: grid; gap: 12px; }
-    @media (min-width: 900px) { .grid-cols-2 { grid-template-columns: 1fr 1fr; } }
-
-    .muted { color: #9aa6b2; font-size: .95rem; }
-    .badge {
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 3px 10px; border-radius: 999px; font-size: .85rem; border: 1px solid #334155;
-      background: #0b1220; color: #bcd0ea;
+    /* Informacja o Stripe */
+    .stripe-note {
+      margin: 8px 0 10px 0;
+      padding: 10px 12px;
+      border: 1px solid #2a2e37;
+      border-radius: 10px;
+      background: #101421;
+      font-size: 14px;
     }
-    .sep { height: 10px; }
+    .stripe-note b { font-weight: 700; }
+
+    /* Karta braku dostępu dla niezalogowanych */
+    .denied {
+      text-align: center;
+      padding: 28px;
+      border: 1px dashed #2a2e37;
+      background: linear-gradient(180deg,#121520,#0e1018);
+    }
+    .denied h3 { margin: 0 0 6px 0; }
+    .cta-row { display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
+    .cta-row a.button { background:#2b3242; }
+    .cta-row a.button:hover { background:#3a4257; }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <h1>🧠 CIS Aurora — AntyScam (Local)</h1>
-    <div class="muted">Wklej adres kontraktu ETH, uruchom analizę i zobacz wynik. Serwer: Flask (port 5000).</div>
+    <p class="muted">Wklej adres kontraktu ETH, uruchom analizę i zobacz wynik. Serwer: Flask (port 5000).</p>
 
-    <div class="sep"></div>
+    <!-- 🔐 Pasek logowania Outseta -->
+    <nav class="row">
+      <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=register#o-anonymous">Załóż konto (trial 3 dni)</a>
+      <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=login#o-anonymous">Zaloguj</a>
+      <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/profile#o-authenticated">Profil / Płatności</a>
+      <a class="button" href="#o-logout-link">Wyloguj</a>
+    </nav>
 
-    <div class="row">
-      <button class="btn" id="btnProfile">Profil</button>
-      <button class="btn" id="btnLogout">Wyloguj</button>
+    <!-- 🧾 Pasek statusu użytkownika/subskrypcji (wypełniany po zalogowaniu) -->
+    <div id="statusBar" class="status-bar" style="display:none">
+      <div class="left">
+        <span id="statusUser" class="status-pill">—</span>
+        <span id="statusPlan" class="status-pill">Plan: —</span>
+        <span id="statusState" class="status-pill">Status: —</span>
+      </div>
+      <div class="right muted">Płatności obsługuje <b>Stripe</b>.</div>
     </div>
 
-    <!-- Pasek statusu płatności (dynamiczny, fallback na „Stripe”) -->
-    <div class="stripe-note" id="billingBadge" title="Status płatności">Płatności obsługuje <b>Stripe</b>.</div>
-
-    <div class="card" style="margin-top: 6px;">
-      <label for="address" class="muted">Adres kontraktu (0x...):</label>
-      <input id="address" class="input" placeholder="0x0000000000000000000000000000000000000000"/>
-      <div class="sep"></div>
-      <div class="row">
-        <button id="analyzeBtn" class="btn">Analizuj</button>
-        <button id="lastBtn" class="btn">Pokaż ostatni raport</button>
+    <!-- 🔒 Karta „brak dostępu” (dla niezalogowanych) -->
+    <div id="deniedCard" class="card denied" style="display:none">
+      <h3>🔒 Brak dostępu do analizy</h3>
+      <p class="muted">Ta funkcja jest dostępna tylko dla zalogowanych użytkowników. Utwórz konto i korzystaj z 3-dniowego triala.</p>
+      <div class="cta-row">
+        <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=register#o-anonymous">Załóż konto</a>
+        <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=login#o-anonymous">Zaloguj</a>
+        <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/profile#o-authenticated">Profil / Płatności</a>
       </div>
     </div>
 
-    <div class="sep"></div>
+    <!-- 🧪 Karta analizy (pokazujemy tylko zalogowanym) -->
+    <div id="analyzeCard" class="card" style="display:none">
+      <form id="form">
+        <label>Adres kontraktu (0x...):</label>
+        <input id="address" type="text" placeholder="0x0000000000000000000000000000000000000000" />
+        <div class="row">
+          <button class="primary" type="submit">Analizuj</button>
+        </div>
+      </form>
+    </div>
 
-    <div id="result" class="card">
+    <div id="resultCard" class="card" style="display:none">
       <h3>Wynik</h3>
-      <pre id="resultBox" class="muted">Brak raportów.</pre>
-    </div>
-
-    <div class="sep"></div>
-
-    <div class="grid grid-cols-2">
-      <div class="card">
-        <div class="pill good">GOOD</div> TokenMintERC20Token
-        <div class="muted">Adres: 0x95ad61b0a15e0d79219dcf64e1c6ec01f8cb4c4ce</div>
-        <div class="muted">Wynik: <b>8.80 / 10</b></div>
-      </div>
-      <div class="card">
-        <h3 class="muted">📝 Co analizujemy (stałe obszary audytu)</h3>
-        <ul class="muted" style="margin: 6px 0 0 14px;">
-          <li>Wysokie podatki</li>
-          <li>Pułapki na kupujących</li>
-          <li>Możliwość nieograniczonego dodruku</li>
-          <li>Cała podaż do jednego adresu na starcie</li>
-        </ul>
-      </div>
+      <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0 0 8px 0"></div>
+      <pre id="result" style="display:none;margin-top:12px">—</pre>
     </div>
   </div>
 
   <script>
-    // UI handlers (Outseta widgets)
-    const btnProfile = document.getElementById('btnProfile');
-    const btnLogout  = document.getElementById('btnLogout');
-    btnProfile?.addEventListener('click', () => {
-      try { Outseta.nocode.profile.open(); } catch(e) { console.warn(e); }
-    });
-    btnLogout?.addEventListener('click', async () => {
-      try { await Outseta.auth.signOut(); location.reload(); } catch(e) { console.warn(e); }
-    });
+    // UI refs
+    const form        = document.getElementById("form");
+    const resBox      = document.getElementById("result");
+    const htmlBox     = document.getElementById("overlayHTML");
+    const analyzeCard = document.getElementById("analyzeCard");
+    const deniedCard  = document.getElementById("deniedCard");
+    const resultCard  = document.getElementById("resultCard");
 
-    // Demo analyze / last-report hooks (pozostawione bez zmian)
-    const addr = document.getElementById('address');
-    const analyzeBtn = document.getElementById('analyzeBtn');
-    const lastBtn = document.getElementById('lastBtn');
-    const out = document.getElementById('resultBox');
+    const statusBar   = document.getElementById("statusBar");
+    const statusUser  = document.getElementById("statusUser");
+    const statusPlan  = document.getElementById("statusPlan");
+    const statusState = document.getElementById("statusState");
 
-    analyzeBtn?.addEventListener('click', async () => {
-      out.textContent = '⏳ Analiza w toku…';
-      try {
-        const r = await fetch('/analyze?address=' + encodeURIComponent(addr.value || ''));
-        out.textContent = await r.text();
-      } catch (e) {
-        out.textContent = 'TypeError: NetworkError when attempting to fetch resource.';
+    let isAuthed = false;
+    let profile  = null;
+
+    function setDisplay(el, show){
+      if(!el) return;
+      el.style.display = show ? "" : "none";
+    }
+
+    function renderStatus(p){
+      if(!p){
+        setDisplay(statusBar, false);
+        statusUser.textContent  = "—";
+        statusPlan.textContent  = "Plan: —";
+        statusState.textContent = "Status: —";
+        return;
       }
-    });
+      setDisplay(statusBar, true);
+      const email = p.Email || "—";
+      // Spróbuj odczytać plan i status z profilu (gdy są subskrypcje)
+      const subs = (p.Account && p.Account.Subscriptions) ? p.Account.Subscriptions : [];
+      const first = subs && subs.length ? subs[0] : null;
+      const planName = (first && first.Plan && first.Plan.Name) ? first.Plan.Name : "Trial / Brak planu";
+      const state    = (first && (first.Status || first.State)) ? (first.Status || first.State) : "Brak aktywnej subskrypcji";
 
-    lastBtn?.addEventListener('click', async () => {
-      try {
-        const r = await fetch('/last-report');
-        out.textContent = await r.text();
-      } catch (e) {
-        out.textContent = 'Brak raportów.';
-      }
-    });
-  </script>
+      statusUser.textContent  = email;
+      statusPlan.textContent  = "Plan: " + planName;
+      statusState.textContent = "Status: " + state;
+    }
 
-  <script>
-    // Dynamic Outseta billing badge (safe, optional)
-    (function(){
-      var badge = document.getElementById('billingBadge');
-      function setBadge(state){
-        if(!badge) return;
-        badge.classList.remove('badge--trial','badge--active');
-        if(state==='trial'){
-          badge.innerHTML = 'Plan: <b>TRIAL</b> (okres próbny)';
-          badge.classList.add('badge--trial');
-        } else if(state==='active'){
-          badge.innerHTML = 'Plan: <b>ACTIVE</b>';
-          badge.classList.add('badge--active');
-        } else {
-          badge.innerHTML = 'Płatności obsługuje <b>Stripe</b>.';
-        }
+    function renderGate(){
+      if(isAuthed){
+        setDisplay(deniedCard, false);
+        setDisplay(analyzeCard, true);
+        setDisplay(resultCard, true);
+      }else{
+        setDisplay(analyzeCard, false);
+        setDisplay(resultCard, false);
+        setDisplay(deniedCard, true);
       }
+    }
+
+    async function refreshAuthState(){
       try{
-        if(window.Outseta && typeof window.Outseta.on==='function'){
-          window.Outseta.on('ready', function(){
-            // Spróbuj pobrać listę subskrypcji (u zalogowanego użytkownika). W razie błędu – fallback do Stripe.
-            var getter = (window.Outseta.get ? window.Outseta.get : null);
-            if(!getter){ setBadge(null); return; }
-            getter('billing/subscriptions').then(function(resp){
-              var list = (resp && (resp.items || resp.data)) || resp || [];
-              var state = null;
-              for(var i=0;i<list.length;i++){
-                var s = list[i] || {};
-                var status = String(s.status || s.SubscriptionStatus || '').toLowerCase();
-                var trialEnd = s.trial_ends_at || s.trialEndsAt;
-                if(status.indexOf('trial')>-1 || (trialEnd && new Date(trialEnd) > new Date())){ state='trial'; break; }
-                if(status.indexOf('active')>-1){ state='active'; break; }
-              }
-              setBadge(state);
-            }).catch(function(){ setBadge(null); });
-          });
+        // Szybki check: payload JWT (może być null, gdy niezalogowany)
+        const payload = await Outseta.getJwtPayload();
+        isAuthed = !!payload;
+        // Pełny profil (zawiera m.in. dane konta i subskrypcji)
+        profile = isAuthed ? await Outseta.getUser() : null;
+      }catch(_){
+        isAuthed = false;
+        profile = null;
+      }
+      renderStatus(profile);
+      renderGate();
+    }
+
+    // Zdarzenia z Outsety — reagujemy na login/logout/odświeżenie tokena
+    Outseta.on('accessToken.set', refreshAuthState); // po zalogowaniu
+    Outseta.on('logout', refreshAuthState);          // po wylogowaniu
+
+    // Start: sprawdź stan autoryzacji
+    refreshAuthState();
+
+    // Obsługa formularza analizy (blokuj dla niezalogowanych)
+    if(form){
+      form.addEventListener("submit", async (e)=>{
+        e.preventDefault();
+        if(!isAuthed){
+          // Dodatkowa ochrona UI
+          setDisplay(deniedCard, true);
+          return;
         }
-      }catch(e){ /* ignore */ }
-    })();
+        htmlBox.innerHTML = "<div style='padding:12px;color:#9aa0a6'>⏳ Analiza w toku…</div>";
+        const addr = document.getElementById("address").value.trim();
+
+        const resp = await fetch("/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ address: addr })
+        });
+
+        try{
+          const data = await resp.json();
+          if(resBox){
+            let txt = data.error
+              ? ("❌ " + data.error)
+              : `Status: ${data.status}\nCzas: ${data.elapsed_sec}s\nAdres: ${data.address}\nCmd: ${data.cmd}\n\nSTDOUT (tail):\n${data.stdout_tail || ""}\n\nSTDERR (tail):\n${data.stderr_tail || ""}`;
+            if(data.last_report) txt += `\n\nOstatni raport: ${data.last_report}`;
+            resBox.textContent = txt;
+            resBox.style.display = "block";
+          }
+        }catch(_){
+          // Ignoruj JSON parse error i po prostu pokaż HTML warstwy
+        }
+
+        // Po wywołaniu analizy poproś o HTML raportu (ładna warstwa)
+        try{
+          const r = await fetch("/last-report-html");
+          const txt = await r.text();
+          htmlBox.innerHTML = (r.ok ? txt : `<pre>${txt}</pre>`);
+        }catch(e){
+          htmlBox.innerHTML = `<pre>${String(e)}</pre>`;
+        }
+      });
+    }
   </script>
 </body>
 </html>
