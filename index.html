@@ -83,12 +83,16 @@
 
     <div id="resultCard" class="card" style="display:none">
       <h3>Wynik</h3>
-      <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0 0 8px 0"></div>
+      <!-- Tylko raport HTML -->
+      <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0"></div>
+      <!-- Konsola (wyłączona): zostawiamy w DOM, ale nie pokazujemy -->
       <pre id="result" style="display:none;margin-top:12px">—</pre>
     </div>
   </div>
 
   <script>
+    const DEBUG_TAIL = false; // ⛔️ wyłączamy konsolę pod wynikiem
+
     const form        = document.getElementById("form");
     const resBox      = document.getElementById("result");
     const htmlBox     = document.getElementById("overlayHTML");
@@ -108,7 +112,6 @@
     function fmtDate(d){ try { return d.toISOString().slice(0,10); } catch(_) { return ""; } }
     function getLower(x){ return (x===undefined||x===null) ? "" : String(x).toLowerCase(); }
 
-    // Wyświetlanie planu i statusu (realny Plan.Name lub Trial)
     function renderStatus(p){
       if(!p){ setDisplay(statusBar,false); return; }
       setDisplay(statusBar,true);
@@ -153,7 +156,6 @@
       statusState.textContent = "Status: " + state;
     }
 
-    // Gating przycisku: tylko Stage 2/3, billing active/trial/trialing, lub ważne okno triala
     function canAnalyze(p){
       if(!p || !p.Account) return false;
 
@@ -252,18 +254,22 @@
           body: new URLSearchParams({ address: addr })
         });
 
-        try{
-          const data = await resp.json();
-          if(resBox){
-            let txt = data.error
-              ? ("❌ " + (data.message || data.error))
-              : `Status: ${data.status}\nCzas: ${data.elapsed_sec}s\nAdres: ${data.address}\nCmd: ${data.cmd}\n\nSTDOUT (tail):\n${data.stdout_tail || ""}\n\nSTDERR (tail):\n${data.stderr_tail || ""}`;
-            if(data.last_report) txt += `\n\nOstatni raport: ${data.last_report}`;
-            resBox.textContent = txt;
-            resBox.style.display = "block";
-          }
-        }catch(_){}
+        // Konsola pod wynikiem — całkowicie wyłączona gdy DEBUG_TAIL=false
+        if (DEBUG_TAIL) {
+          try{
+            const data = await resp.json();
+            if(resBox){
+              let txt = data.error
+                ? ("❌ " + (data.message || data.error))
+                : `Status: ${data.status}\nCzas: ${data.elapsed_sec}s\nAdres: ${data.address}\nCmd: ${data.cmd}\n\nSTDOUT (tail):\n${data.stdout_tail || ""}\n\nSTDERR (tail):\n${data.stderr_tail || ""}`;
+              if(data.last_report) txt += `\n\nOstatni raport: ${data.last_report}`;
+              resBox.textContent = txt;
+              resBox.style.display = "block";
+            }
+          }catch(_){}
+        }
 
+        // Zawsze ładujemy tylko finalny raport HTML
         try{
           const r = await fetch("/last-report-html");
           const txt = await r.text();
