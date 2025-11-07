@@ -59,13 +59,9 @@ LEGACY_MODE = os.getenv("AURORA_LEGACY_MODE", "ON").upper()    # ON | OFF
 # I/O
 CONTRACTS_DIR = "contracts"
 ANALYZE_ROOT  = "ANALYZE"
-ANALYZE_DIRS  = {
-    "good": os.path.join(ANALYZE_ROOT, "GOOD"),
-    "risk": os.path.join(ANALYZE_ROOT, "RISK"),
-    "extreme_risk": os.path.join(ANALYZE_ROOT, "EXTREME_RISK"),
-}
-for d in [CONTRACTS_DIR] + list(ANALYZE_DIRS.values()):
-    os.makedirs(d, exist_ok=True)
+ANALYZE_BY_ID_DIR = os.path.join(ANALYZE_ROOT, "by_id")
+os.makedirs(CONTRACTS_DIR, exist_ok=True)
+os.makedirs(ANALYZE_BY_ID_DIR, exist_ok=True)
 ROTATION_LIMIT = 200
 
 # ------------------ Opisy flag ------------------
@@ -254,6 +250,17 @@ def _slugify(s: str, max_len: int = 48) -> str:
     s = re.sub(r'[^A-Za-z0-9]+', '-', s)
     s = re.sub(r'-{2,}', '-', s).strip('-')
     return (s[:max_len] or "contract").lower()
+
+def _make_job_id(address: str) -> str:
+    """
+    Tworzy stabilny identyfikator żądania: YYYYMMDD-HHMMSSmmm_<address>
+    """
+    now = time.time()
+    ts  = time.strftime("%Y%m%d-%H%M%S", time.localtime(now))
+    ms  = int((now - int(now)) * 1000)
+    addr = (address or "unknown").lower()
+    return f"{ts}{ms:03d}_{addr}"
+
 
 # ==================== CIS_OFF_AURORA_v3_2.py — PART 2/5 ====================
 
@@ -1199,35 +1206,19 @@ def _append_csv(file_path: str, header: list, row: list):
         f.write(",".join(row) + "\n")
 
 def save_report(report: dict):
-    score = report["score"]
-    if score >= 8.0: out_dir, label = ANALYZE_DIRS["good"], "GOOD"
-    elif score >= 6.5: out_dir, label = ANALYZE_DIRS["risk"], "RISK"
-    else: out_dir, label = ANALYZE_DIRS["extreme_risk"], "EXTREME_RISK"
-
-    # JSON (bez zmian) — już zawiera decision/checklist/confidence
-    json_path = _rotate_path(out_dir, label.lower()); _append_json(json_path, report)
-
-    # TXT — zachowaj stary 4-kolumnowy wiersz + dodaj 2. linię z user-view (niełamliwie)
-    token_name = (report.get("identity", {}).get("resolved_name") or report.get("name") or "Contract").strip()
-    txt_path = json_path.replace(".json", ".txt")
-    _append_txt(txt_path, f"{token_name},{report['address']},{report['score']:.2f},{label}")
-    # nowa, pomocnicza linia do tego samego TXT
-    decision = report.get("decision","REVIEW")
-    conf = report.get("confidence",{})
-    conf_lvl, conf_sc = conf.get("level","MED"), conf.get("score","-")
-    ch = report.get("checklist", [])[:3]  # top-3 do TXT
-    _append_txt(txt_path, f"# UX: decision={decision} | confidence={conf_lvl}({conf_sc}/10) | checklist: " + " | ".join(ch))
-
-    # MAILER CSV — wygodny do zaciągania przez CMO
-    mailer_csv = os.path.join(out_dir, "mailer.csv")
-    adv_flag = "YES" if (report.get("advisory") or {}).get("candidate") else ""
-    header = ["name","address","score","bucket","advisory","decision","confidence_level","confidence_score","check1","check2","check3"]
-    row = [token_name, report['address'], f"{report['score']:.2f}", label, adv_flag, decision, conf_lvl, str(conf_sc), ch[0] if len(ch)>0 else "", ch[1] if len(ch)>1 else "", ch[2] if len(ch)>2 else ""]
-
-    _append_csv(mailer_csv, header, row)
-
-    log_ok(f"Zapisano: {token_name},{report['address']},{report['score']:.2f},{label}")
-    return json_path, txt_path
+    """
+    Zapis uproszczony — jeden plik JSON per analizę:
+    ANALYZE/by_id/<job_id>.json
+    """
+    job_id = _make_job_id(report.get("address", ""))
+    out_path = os.path.join(ANALYZE_BY_ID_DIR, f"{job_id}.json")
+    try:
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(report, f, ensure_ascii=False, indent=2)
+        log_ok(f"Zapisano raport: {out_path}")
+    except Exception as e:
+        log_err(f"Błąd zapisu raportu: {e}")
+    return out_path
 
 def run_console():
     print(BANNER)
@@ -1309,7 +1300,8 @@ def server_single_address(address: str) -> int:
     log_ok(f"Zapisano źródło: {path}")
 
     report = analyze_contract(name, address, src)
-    save_report(report)
+    out_path = save_report(report)
+    log_ok(f"Raport zapisany do: {out_path}")
 
     mm = report.get("market_matrix", {})
     log_info(f"MATRIX: SELL={mm.get('SELL(user→pair)')} | BUY={mm.get('BUY(pair→user)')} | P2P={mm.get('P2P(user→user)')}")

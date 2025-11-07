@@ -9,10 +9,14 @@ APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 ANALYZE_DIR = os.path.join(APP_ROOT, "ANALYZE")
 
 def latest_report():
-    files = []
-    for sub in ["GOOD", "RISK", "EXTREME_RISK"]:
-        files += glob.glob(os.path.join(ANALYZE_DIR, sub, "*.txt"))
-        files += glob.glob(os.path.join(ANALYZE_DIR, sub, "*.json"))
+    """
+    Zwraca najnowszy raport z katalogu ANALYZE/by_id/
+    (pojedynczy plik JSON tworzony przez analyzer_core.py)
+    """
+    by_id_dir = os.path.join(ANALYZE_DIR, "by_id")
+    if not os.path.exists(by_id_dir):
+        return None
+    files = glob.glob(os.path.join(by_id_dir, "*.json"))
     files.sort(key=os.path.getmtime, reverse=True)
     return files[0] if files else None
 

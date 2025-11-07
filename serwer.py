@@ -163,21 +163,25 @@ def home():
 def health():
     return jsonify({"status": "ok", "time": int(time.time())})
 
-@app.route("/last-report")
-def last_report():
-    path = latest_report_path()
-    if not path:
-        return jsonify({"error": "No reports yet"}), 404
-    try:
-        ext = os.path.splitext(path)[1].lower()
-        content = open(path, "r", encoding="utf-8", errors="ignore").read()
-        return jsonify({
-            "path": os.path.relpath(path, APP_ROOT),
-            "ext": ext,
-            "content": tail_text(content, 5000)
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+# @app.route("/last-report")
+# def last_report():
+#     """
+#     Endpoint wyłączony (Aurora v3.3) – przestarzały po zmianie I/O na by_id/.
+#     Zostawiony tylko w celach referencyjnych.
+#     """
+#     path = latest_report_path()
+#     if not path:
+#         return jsonify({"error": "No reports yet"}), 404
+#     try:
+#         ext = os.path.splitext(path)[1].lower()
+#         content = open(path, "r", encoding="utf-8", errors="ignore").read()
+#         return jsonify({
+#             "path": os.path.relpath(path, APP_ROOT),
+#             "ext": ext,
+#             "content": tail_text(content, 5000)
+#         })
+#     except Exception as e:
+#         return jsonify({"error": str(e)}), 500
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
