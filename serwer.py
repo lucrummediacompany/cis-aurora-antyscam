@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 ANALYZE_DIR = os.path.join(APP_ROOT, "ANALYZE")
 LOGS_DIR = os.path.join(APP_ROOT, "LOGS")
+ANALYZE_BY_ID_DIR = os.path.join(ANALYZE_DIR, "by_id")
 
 # ⬇️ Twój analizator (zostawiamy jak było)
 ANALYZER_CMD = "python anty_scam.py {address}"
@@ -45,12 +46,32 @@ _load_eyes()
 def tail_text(txt: str, max_len: int = 2000) -> str:
     return txt if len(txt) <= max_len else txt[-max_len:]
 
+# ---- NEW: wybór raportu z ANALYZE/by_id (z opcjonalnym filtrem czasowym) ----
+def latest_report_by_id(after_ts: float | None = None) -> str:
+    if not os.path.isdir(ANALYZE_BY_ID_DIR):
+        return ""
+    files = glob.glob(os.path.join(ANALYZE_BY_ID_DIR, "*.json"))
+    if after_ts is not None:
+        files = [p for p in files if os.path.getmtime(p) >= after_ts]
+    if not files:
+        return ""
+    files.sort(key=os.path.getmtime, reverse=True)
+    return files[0]
+
 def latest_report_path() -> str:
+    """
+    Najpierw szukamy w ANALYZE/by_id/*.json (nowy I/O).
+    Jeśli nic nie ma, fallback do dawnych katalogów (GOOD/RISK/EXTREME_RISK).
+    """
+    p = latest_report_by_id()
+    if p:
+        return p
     files = []
     for sub in ["GOOD", "RISK", "EXTREME_RISK"]:
         files.extend(glob.glob(os.path.join(ANALYZE_DIR, sub, "*.txt")))
         files.extend(glob.glob(os.path.join(ANALYZE_DIR, sub, "*.json")))
-    if not files: return ""
+    if not files:
+        return ""
     files.sort(key=os.path.getmtime, reverse=True)
     return files[0]
 
@@ -163,26 +184,6 @@ def home():
 def health():
     return jsonify({"status": "ok", "time": int(time.time())})
 
-# @app.route("/last-report")
-# def last_report():
-#     """
-#     Endpoint wyłączony (Aurora v3.3) – przestarzały po zmianie I/O na by_id/.
-#     Zostawiony tylko w celach referencyjnych.
-#     """
-#     path = latest_report_path()
-#     if not path:
-#         return jsonify({"error": "No reports yet"}), 404
-#     try:
-#         ext = os.path.splitext(path)[1].lower()
-#         content = open(path, "r", encoding="utf-8", errors="ignore").read()
-#         return jsonify({
-#             "path": os.path.relpath(path, APP_ROOT),
-#             "ext": ext,
-#             "content": tail_text(content, 5000)
-#         })
-#     except Exception as e:
-#         return jsonify({"error": str(e)}), 500
-
 @app.route("/analyze", methods=["POST"])
 def analyze():
     email = (request.headers.get("X-User-Email") or "").strip().lower()
@@ -200,8 +201,9 @@ def analyze():
     if not ADDRESS_RE.match(address):
         return jsonify({"error": "Invalid ETH address. Expected 0x + 40 hex chars."}), 400
 
-    cmd = ANALYZER_CMD.format(address=address)
+    # zapamiętaj czas startu; po analizie wybierz najnowszy plik z by_id ≥ start_ts
     start_ts = time.time()
+    cmd = ANALYZER_CMD.format(address=address)
     try:
         proc = subprocess.run(
             cmd, cwd=APP_ROOT, shell=True,
@@ -210,6 +212,11 @@ def analyze():
         )
         elapsed = round(time.time() - start_ts, 2)
         status = "ok" if proc.returncode == 0 else "error"
+
+        # NEW: wskaż raport powstały w TYM żądaniu
+        report_path = latest_report_by_id(after_ts=start_ts) or latest_report_path()
+        report_rel = os.path.relpath(report_path, APP_ROOT) if report_path else None
+
         return jsonify({
             "status": status,
             "elapsed_sec": elapsed,
@@ -217,7 +224,7 @@ def analyze():
             "cmd": cmd,
             "stdout_tail": tail_text(proc.stdout, 4000),
             "stderr_tail": tail_text(proc.stderr, 2000),
-            "last_report": os.path.relpath(latest_report_path(), APP_ROOT) if latest_report_path() else None
+            "last_report": report_rel
         }), (200 if status == "ok" else 500)
     except subprocess.TimeoutExpired:
         return jsonify({"error": f"Analyzer timed out after {ANALYZE_TIMEOUT_SEC}s", "address": address}), 504
@@ -380,7 +387,7 @@ def last_report_html():
                   <div style="flex:1;min-width:280px;padding:14px;border-radius:12px;background:#0e1016;box-shadow:0 2px 10px rgba(0,0,0,.28)">
                     <div style="display:flex;gap:10px;align-items:flex-start">
                       <div style="font-size:22px">{icon}</div>
-                      <div><div style="font-weight:700">{title}</div>
+                      <div><div style="font-weight:700'>{title}</div>
                       <div style="font-size:13px;line-height:1.55;opacity:.92;margin-top:4px">{text}</div></div>
                     </div>
                   </div>"""
