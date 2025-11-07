@@ -288,7 +288,7 @@ def last_report_html():
         if ext == ".json":
             data = json.load(open(path, "r", encoding="utf-8", errors="ignore"))
             report = data[-1] if isinstance(data, list) and data else (data if isinstance(data, dict) else {})
-            name = report.get("name") or report.get("identity", {}).get("resolved_name") or "Contract"
+            name = report.get("identity", {}).get("resolved_name") or report.get("name") or "Contract"
             addr = report.get("address", "?")
             try: score = float(report.get("score", 0.0))
             except Exception: score = 0.0
