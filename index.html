@@ -217,11 +217,6 @@
         (acc.CurrentSubscription && acc.CurrentSubscription.Plan && acc.CurrentSubscription.Plan.Name) ||
         (acc.Plan && acc.Plan.Name) || "";
 
-      let state =
-        (s && (s.Status || s.State)) ||
-        (acc.CurrentSubscription && (acc.CurrentSubscription.Status || acc.CurrentSubscription.State)) ||
-        "";
-
       let stageCode = acc.AccountStage;
       try { stageCode = parseInt(stageCode,10); } catch(_) { stageCode = NaN; }
       const stageName = String(acc.AccountStageName || acc.StageName || acc.AccountStage || "").toLowerCase();
@@ -233,18 +228,31 @@
         return !isNaN(end.getTime()) && end.getTime() > Date.now();
       })();
 
+      // Jeśli nie mamy nazwy planu, ale Outseta mówi "trial" → ustaw "Trial"
       if(!planName && (stageCode === 2 || stageName.includes("trial") || trialIsActive)){
         planName = "Trial";
       }
-      if(!state && (stageCode === 2 || stageName.includes("trial") || trialIsActive)){
-        state = trialIsActive ? ("Trial (do " + fmtDate(new Date(trialEndsRaw)) + ")") : "Trialing";
-      }
       if(!planName) planName = "Brak planu";
-      if(!state)    state    = "Brak aktywnej subskrypcji";
+
+      // Używamy tej samej logiki co gate, żeby status był spójny z dostępem
+      const allowed = canAnalyze(p);
+      let stateLabel;
+
+      if(allowed){
+        if(trialIsActive){
+          stateLabel = trialEndsRaw
+            ? ("Trial aktywny do " + fmtDate(new Date(trialEndsRaw)))
+            : "Trial aktywny";
+        }else{
+          stateLabel = "Subskrypcja aktywna";
+        }
+      }else{
+        stateLabel = "Brak aktywnej subskrypcji";
+      }
 
       statusUser.textContent  = email;
       statusPlan.textContent  = "Plan: " + planName;
-      statusState.textContent = "Status: " + state;
+      statusState.textContent = "Status: " + stateLabel;
     }
 
     function canAnalyze(p){
