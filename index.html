@@ -11,13 +11,22 @@
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CIS Aurora — AntyScam (Local)</title>
+  <title>CIS Aurora — AntyScam</title>
 
   <style>
     :root { color-scheme: dark; }
     body { font-family: Arial, sans-serif; margin: 32px; background: #0e0f13; color: #e6e7ea; }
     .wrap { max-width: 900px; margin: auto; }
-    h1 { margin-bottom: 8px; }
+    h1 { margin-bottom: 6px; font-size: 28px; display:flex; align-items:center; gap:10px; }
+    h1 span.logo-brain{ font-size:30px; }
+    h1 span.title-text{
+      background: linear-gradient(90deg,#f5c86a,#ff7fd1);
+      -webkit-background-clip:text;
+      background-clip:text;
+      color: transparent;
+      font-weight: 700;
+    }
+    .tagline { margin-top: 2px; }
     .card { border: 1px solid #2a2e37; border-radius: 12px; padding: 16px; margin-top: 16px; background: #141720; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
     input[type=text]{ width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #2a2e37; background: #0f1220; color: #e6e7ea; }
     button { padding: 10px 16px; border-radius: 8px; border: none; cursor: pointer; transition: all .2s ease-in-out; }
@@ -25,30 +34,95 @@
     button.primary:hover { background: #2b3242; }
     pre { white-space: pre-wrap; background: #0f1220; padding: 12px; border-radius: 8px; max-height: 480px; overflow: auto; color: #e6e7ea; }
     .muted { color: #9aa0a6; font-size: 14px; }
-    .row { display: flex; gap: 8px; margin-top: 8px; }
+    .row { display: flex; gap: 8px; margin-top: 8px; flex-wrap:wrap; }
     nav.row { margin-bottom: 12px; }
     nav.row a.button{ text-decoration: none; background: #1f2330; color: #e6e7ea; padding: 8px 14px; border-radius: 8px; transition: background .2s; }
     nav.row a.button:hover { background: #2b3242; }
     .status-bar { margin: 10px 0 6px 0; padding: 10px 12px; border: 1px solid #2a2e37; border-radius: 10px; background: #101421; font-size: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .status-bar .left { display:flex; gap:10px; align-items:center; }
     .status-pill{ padding: 4px 8px; border-radius: 999px; background: #1f2330; border: 1px solid #2a2e37; font-size: 12px; color: #e6e7ea; }
+
+    .brand-bar{
+      margin: 4px 0 10px 0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: linear-gradient(90deg,#151826,#101421);
+      border: 1px solid #252a38;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      font-size:13px;
+    }
+    .brand-bar .label{ color:#9aa0a6; }
+    .brand-badges{ display:flex; gap:8px; flex-wrap:wrap; }
+    .brand-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid #303549;
+      background:#181b29;
+      text-decoration:none;
+      color:#e6e7ea;
+      font-size:13px;
+    }
+    .brand-badge:hover{ background:#23283a; }
+    .brand-icon{
+      display:inline-block;
+      width:16px;
+      height:16px;
+    }
+    .brand-icon.outseta{
+      border-radius:999px;
+      border:2px solid #f5c86a;
+      box-shadow:inset 0 0 0 2px #181b29;
+    }
+    .brand-icon.stripe{
+      border-radius:4px;
+      background:linear-gradient(135deg,#635bff,#7a5cff);
+    }
+
     .denied { text-align: center; padding: 28px; border: 1px dashed #2a2e37; background: linear-gradient(180deg,#121520,#0e1018); }
     .denied h3 { margin: 0 0 6px 0; }
     .cta-row { display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
     .cta-row a.button { background:#2b3242; }
     .cta-row a.button:hover { background:#3a4257; }
+
+    .footer{
+      margin-top:26px;
+      text-align:center;
+      font-size:13px;
+      color:#6f7684;
+    }
+    .footer a{
+      color:#b1b7ff;
+      text-decoration:none;
+    }
+    .footer a:hover{
+      text-decoration:underline;
+    }
   </style>
 </head>
 
 <body>
   <div class="wrap">
-    <h1>🧠 CIS Aurora — AntyScam (Local)</h1>
-    <p class="muted">Wklej adres kontraktu ETH, uruchom analizę i zobacz wynik. Serwer: Flask (port 5000).</p>
+    <h1>
+      <span class="logo-brain">🧠</span>
+      <span class="title-text">CIS Aurora — AntyScam</span>
+    </h1>
+    <p class="muted tagline">
+      Wklej adres kontraktu ETH, uruchom analizę i zobacz ocenę ryzyka w kilka sekund. 
+      Inteligentna tarcza anty-scam dla traderów i projektów Web3.
+    </p>
 
     <nav class="row">
       <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=register#o-anonymous">Załóż konto (trial 3 dni)</a>
       <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=login#o-anonymous">Zaloguj</a>
       <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/profile#o-authenticated">Profil / Płatności</a>
+      <a class="button" href="https://www.lucrummediacompany.eu/" target="_blank" rel="noopener">O nas</a>
       <a class="button" href="#o-logout-link">Wyloguj</a>
     </nav>
 
@@ -58,7 +132,19 @@
         <span id="statusPlan" class="status-pill">Plan: —</span>
         <span id="statusState" class="status-pill">Status: —</span>
       </div>
-      <div class="right muted">Płatności obsługuje <b>Stripe</b>.</div>
+      <div class="right muted">Infrastruktura subskrypcji: <b>Outseta</b> + <b>Stripe</b>.</div>
+    </div>
+
+    <div class="brand-bar">
+      <div class="label">CIS Aurora — AntyScam współpracuje z:</div>
+      <div class="brand-badges">
+        <a href="https://www.outseta.com/" target="_blank" rel="noopener" class="brand-badge">
+          <img src="outseta-logo-dark.svg" alt="Outseta" style="height:18px; display:block;">
+        </a>
+        <a href="https://stripe.com/" target="_blank" rel="noopener" class="brand-badge">
+          <img src="stripe-logo-light.svg" alt="Stripe" style="height:18px; display:block;">
+        </a>
+      </div>
     </div>
 
     <div id="deniedCard" class="card denied" style="display:none">
@@ -87,6 +173,11 @@
       <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0"></div>
       <!-- Konsola (wyłączona): zostawiamy w DOM, ale nie pokazujemy -->
       <pre id="result" style="display:none;margin-top:12px">—</pre>
+    </div>
+
+    <div class="footer muted">
+      CIS Aurora — AntyScam &nbsp;|&nbsp; projekt i rozwój:&nbsp;
+      <a href="https://www.lucrummediacompany.eu/" target="_blank" rel="noopener">Lucrum Media Company</a>
     </div>
   </div>
 
