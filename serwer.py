@@ -233,6 +233,10 @@ def analyze():
 def assets(filename):
     return send_from_directory(os.path.join(APP_ROOT, "assets"), filename)
 
+@app.route("/static/<path:filename>")
+def static_files(filename):
+    return send_from_directory(os.path.join(APP_ROOT, "static"), filename)
+
 # ---------- HTML overlay (bez zmian funkcjonalnych) ----------
 def _parse_first_line_csv(txt: str):
     for ln in txt.splitlines():
