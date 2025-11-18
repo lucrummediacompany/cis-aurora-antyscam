@@ -24,10 +24,11 @@ OUTSETA_SECRET = os.getenv("OUTSETA_API_SECRET", "").strip()
 
 app = Flask(__name__, static_folder="assets", static_url_path="/assets")
 
-# --------- EYES overlay (bez zmian) ----------
+# --------- EYES overlay ----------
 EYES_PATH = os.path.join(APP_ROOT, "eyes.json")
 EYES_DATA = {}
 EYES_ORDER = []
+
 
 def _load_eyes():
     global EYES_DATA, EYES_ORDER
@@ -41,13 +42,17 @@ def _load_eyes():
         EYES_DATA, EYES_ORDER = {}, []
         print(f"[EYES][WARN] Could not load eyes.json: {e}")
 
+
 _load_eyes()
+
 
 def tail_text(txt: str, max_len: int = 2000) -> str:
     return txt if len(txt) <= max_len else txt[-max_len:]
 
-# ---- NEW: wybór raportu z ANALYZE/by_id (z opcjonalnym filtrem czasowym) ----
+
+# ---- Raporty ANALYZE/by_id ----
 def latest_report_by_id(after_ts: float | None = None) -> str:
+    """Zwraca NAJNowszy raport z ANALYZE/by_id/*.json, opcjonalnie tylko >= after_ts."""
     if not os.path.isdir(ANALYZE_BY_ID_DIR):
         return ""
     files = glob.glob(os.path.join(ANALYZE_BY_ID_DIR, "*.json"))
@@ -58,14 +63,16 @@ def latest_report_by_id(after_ts: float | None = None) -> str:
     files.sort(key=os.path.getmtime, reverse=True)
     return files[0]
 
+
 def latest_report_path() -> str:
     """
-    Najpierw szukamy w ANALYZE/by_id/*.json (nowy I/O).
-    Jeśli nic nie ma, fallback do dawnych katalogów (GOOD/RISK/EXTREME_RISK).
+    Fallback: gdy nie podano konkretnego path (tylko do ręcznego wejścia na /last-report-html).
+    NIE jest używane w /analyze do obsługi błędów.
     """
     p = latest_report_by_id()
     if p:
         return p
+
     files = []
     for sub in ["GOOD", "RISK", "EXTREME_RISK"]:
         files.extend(glob.glob(os.path.join(ANALYZE_DIR, sub, "*.txt")))
@@ -75,9 +82,11 @@ def latest_report_path() -> str:
     files.sort(key=os.path.getmtime, reverse=True)
     return files[0]
 
+
 # ---------- Outseta helpers ----------
 def _outseta_configured() -> bool:
     return bool(OUTSETA_DOMAIN and OUTSETA_KEY and OUTSETA_SECRET)
+
 
 def outseta_get(path, params=None):
     # Jeśli Outseta nie jest skonfigurowana – sygnalizujemy to łagodnie
@@ -92,13 +101,16 @@ def outseta_get(path, params=None):
     r.raise_for_status()
     return r.json()
 
+
 def _iso_to_dt(s: str):
-    if not s: return None
+    if not s:
+        return None
     try:
         s_norm = s.replace("Z", "+00:00")
         return datetime.fromisoformat(s_norm)
     except Exception:
         return None
+
 
 def has_active_or_trial(email: str) -> bool:
     """
@@ -165,7 +177,11 @@ def has_active_or_trial(email: str) -> bool:
         return True
 
     # 4) okno triala
-    trial_ends = account.get("TrialEndsAt") or account.get("TrialEndDate") or account.get("TrialEndsOn")
+    trial_ends = (
+        account.get("TrialEndsAt")
+        or account.get("TrialEndDate")
+        or account.get("TrialEndsOn")
+    )
     dt = _iso_to_dt(trial_ends) if trial_ends else None
     if dt:
         if not dt.tzinfo:
@@ -175,14 +191,17 @@ def has_active_or_trial(email: str) -> bool:
 
     return False
 
+
 # ---------- ROUTES / PUBLIC API ENDPOINTS (UI + ANALYZE) ----------
 @app.route("/")
 def home():
     return open(os.path.join(APP_ROOT, "index.html"), "r", encoding="utf-8").read()
 
+
 @app.route("/health")
 def health():
     return jsonify({"status": "ok", "time": int(time.time())})
+
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
@@ -192,120 +211,243 @@ def analyze():
     try:
         if _outseta_configured():
             if not has_active_or_trial(email):
-                return jsonify({"error":"access_denied","message":"Aktywuj plan lub trial w Profil / Płatności."}), 403
+                return (
+                    jsonify(
+                        {
+                            "error": "access_denied",
+                            "message": "Aktywuj plan lub trial w Profil / Płatności.",
+                        }
+                    ),
+                    403,
+                )
     except Exception as e:
         if str(e) != "OUTSETA_DISABLED":
-            return jsonify({"error":"subscription_check_failed","message":str(e)}), 403
+            return (
+                jsonify(
+                    {
+                        "error": "subscription_check_failed",
+                        "message": str(e),
+                    }
+                ),
+                403,
+            )
 
     address = (request.form.get("address") or "").strip()
     if not ADDRESS_RE.match(address):
-        return jsonify({"error": "Invalid ETH address. Expected 0x + 40 hex chars."}), 400
+        return (
+            jsonify(
+                {
+                    "error": "invalid_address",
+                    "message": "Invalid ETH address. Expected 0x + 40 hex chars.",
+                }
+            ),
+            400,
+        )
 
-    # zapamiętaj czas startu; po analizie wybierz najnowszy plik z by_id ≥ start_ts
+    # zapamiętaj czas startu; po analizie wybierz nowy plik z by_id >= start_ts
     start_ts = time.time()
     cmd = ANALYZER_CMD.format(address=address)
+
     try:
         proc = subprocess.run(
-            cmd, cwd=APP_ROOT, shell=True,
-            capture_output=True, text=True,
-            timeout=ANALYZE_TIMEOUT_SEC
+            cmd,
+            cwd=APP_ROOT,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=ANALYZE_TIMEOUT_SEC,
         )
         elapsed = round(time.time() - start_ts, 2)
-        status = "ok" if proc.returncode == 0 else "error"
 
-        # NEW: wskaż raport powstały w TYM żądaniu
-        report_path = latest_report_by_id(after_ts=start_ts) or latest_report_path()
-        report_rel = os.path.relpath(report_path, APP_ROOT) if report_path else None
+        stdout = proc.stdout or ""
+        stderr = proc.stderr or ""
 
-        # NEW: małe podsumowanie z raportu (name / score / decision)
-        summary = None
-        if report_path:
-            try:
-                with open(report_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                if isinstance(data, list) and data:
-                    data = data[-1]
-                if isinstance(data, dict):
-                    summary = {
-                        "name": (data.get("identity", {}).get("resolved_name")
-                                 or data.get("name")),
-                        "address": data.get("address"),
-                        "score": data.get("score"),
-                        "decision": data.get("decision"),
-                        "risk_level": data.get("risk_level"),
+        # 🔎 1) Brak źródła – kontrakt niezweryfikowany na Etherscan
+        no_source = (
+            ("Brak źródła dla" in stdout)
+            or ("Brak zrodla dla" in stdout)
+            or ("NO_SOURCE" in stdout.upper())
+        )
+        if no_source:
+            return (
+                jsonify(
+                    {
+                        "status": "no_source",
+                        "address": address,
+                        "elapsed_sec": elapsed,
+                        "message": "Brak kodu źródłowego na Etherscan dla tego adresu (kontrakt nie jest zweryfikowany).",
+                        "stdout_tail": tail_text(stdout, 4000),
+                        "stderr_tail": tail_text(stderr, 2000),
+                        "last_report": None,
+                        "summary": None,
                     }
-            except Exception:
-                summary = None
+                ),
+                200,
+            )
 
-        return jsonify({
-            "status": status,
-            "elapsed_sec": elapsed,
-            "address": address,
-            "cmd": cmd,
-            "stdout_tail": tail_text(proc.stdout, 4000),
-            "stderr_tail": tail_text(proc.stderr, 2000),
-            "last_report": report_rel,
-            "summary": summary
-        }), (200 if status == "ok" else 500)
+        # 🔎 2) Szukamy raportu TYLKO po ANALYZE/by_id i TYLKO po czasie startu
+        report_path = latest_report_by_id(after_ts=start_ts)
+        if not report_path:
+            # brak nowego raportu dla tego żądania
+            return (
+                jsonify(
+                    {
+                        "status": "no_report",
+                        "address": address,
+                        "elapsed_sec": elapsed,
+                        "message": "Analiza nie zapisała raportu (brak pliku w ANALYZE/by_id dla tego żądania). Spróbuj ponownie.",
+                        "stdout_tail": tail_text(stdout, 4000),
+                        "stderr_tail": tail_text(stderr, 2000),
+                        "last_report": None,
+                        "summary": None,
+                    }
+                ),
+                200,
+            )
+
+        # ✅ 3) Mamy by_id – budujemy odpowiedź dla frontu
+        status = "ok" if proc.returncode == 0 else "error"
+        report_rel = os.path.relpath(report_path, APP_ROOT)
+
+        summary = None
+        try:
+            with open(report_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, list) and data:
+                data = data[-1]
+            if isinstance(data, dict):
+                summary = {
+                    "name": (
+                        data.get("identity", {}).get("resolved_name")
+                        or data.get("name")
+                    ),
+                    "address": data.get("address"),
+                    "score": data.get("score"),
+                    "decision": data.get("decision"),
+                    "risk_level": data.get("risk_level"),
+                }
+        except Exception:
+            summary = None
+
+        return (
+            jsonify(
+                {
+                    "status": status,
+                    "elapsed_sec": elapsed,
+                    "address": address,
+                    "cmd": cmd,
+                    "stdout_tail": tail_text(stdout, 4000),
+                    "stderr_tail": tail_text(stderr, 2000),
+                    "last_report": report_rel,
+                    "summary": summary,
+                }
+            ),
+            (200 if status == "ok" else 500),
+        )
+
     except subprocess.TimeoutExpired:
-        return jsonify({"error": f"Analyzer timed out after {ANALYZE_TIMEOUT_SEC}s", "address": address}), 504
+        return (
+            jsonify(
+                {
+                    "error": "timeout",
+                    "message": f"Analyzer timed out after {ANALYZE_TIMEOUT_SEC}s",
+                    "address": address,
+                }
+            ),
+            504,
+        )
+
 
 @app.route("/assets/<path:filename>")
 def assets(filename):
     return send_from_directory(os.path.join(APP_ROOT, "assets"), filename)
 
+
 @app.route("/static/<path:filename>")
 def static_files(filename):
     return send_from_directory(os.path.join(APP_ROOT, "static"), filename)
 
-# ---------- HTML overlay (bez zmian funkcjonalnych) ----------
+
+# ---------- HTML overlay ----------
 def _parse_first_line_csv(txt: str):
     for ln in txt.splitlines():
         s = ln.strip()
-        if not s: continue
+        if not s:
+            continue
         parts = [p.strip() for p in s.split(",")]
         if len(parts) >= 4 and ADDRESS_RE.match(parts[1]):
-            return {"name": parts[0], "address": parts[1], "score": parts[2], "label": parts[3]}
+            return {
+                "name": parts[0],
+                "address": parts[1],
+                "score": parts[2],
+                "label": parts[3],
+            }
         break
     return None
 
+
 def _badge_by_score(sc: float) -> str:
-    if sc >= 8: return "<span style='padding:6px 12px;border-radius:999px;background:#1c8f4d;color:#fff;font-weight:700'>GOOD</span>"
-    if sc >= 5: return "<span style='padding:6px 12px;border-radius:999px;background:#ffb703;color:#111;font-weight:700'>RISK</span>"
+    if sc >= 8:
+        return "<span style='padding:6px 12px;border-radius:999px;background:#1c8f4d;color:#fff;font-weight:700'>GOOD</span>"
+    if sc >= 5:
+        return "<span style='padding:6px 12px;border-radius:999px;background:#ffb703;color:#111;font-weight:700'>RISK</span>"
     return "<span style='padding:6px 12px;border-radius:999px;background:#d62828;color:#fff;font-weight:700'>EXTREME</span>"
 
+
 MAP_RULES = [
-    ("honeypot", "honeypot"), ("honeypot/", "honeypot"),
-    ("podatk", "high_tax"), ("fee", "high_tax"), ("high tax", "high_tax"),
-    ("dodruk", "mint_unlimited"), ("mint", "mint_unlimited"),
-    ("100%", "constructor_mint_msgsender"), ("owner", "constructor_mint_msgsender"),
-    ("blacklist", "blacklist_trading"), ("blok", "blacklist_trading"),
-    ("pauz", "pause_control"), ("wstrzym", "pause_control"),
-    ("withdraw", "withdraw_stuck"), ("wypł", "withdraw_stuck"),
-    ("kill", "kill_switch_v2"), ("proxy", "proxy_like"),
-    ("router", "router_exception"), ("dex", "router_exception"),
-    ("obfusk", "assembly_obfuscation"), ("assembly", "assembly_obfuscation"),
-    ("reflection", "reflection_tax"), ("dynamic", "dynamic_fee"),
-    ("max wallet", "max_wallet"), ("max tx", "max_tx"),
-    ("whitelist", "whitelist_only"), ("trading not open", "trading_not_open"),
-    ("hidden owner", "hidden_owner"), ("reentrancy", "reentrancy_risk"),
-    ("overflow", "overflow_risk"), ("timestamp", "timestamp_dependence"),
-    ("liquidity", "liquidity_removable"), ("audit", "scam_audit_fake"),
+    ("honeypot", "honeypot"),
+    ("honeypot/", "honeypot"),
+    ("podatk", "high_tax"),
+    ("fee", "high_tax"),
+    ("high tax", "high_tax"),
+    ("dodruk", "mint_unlimited"),
+    ("mint", "mint_unlimited"),
+    ("100%", "constructor_mint_msgsender"),
+    ("owner", "constructor_mint_msgsender"),
+    ("blacklist", "blacklist_trading"),
+    ("blok", "blacklist_trading"),
+    ("pauz", "pause_control"),
+    ("wstrzym", "pause_control"),
+    ("withdraw", "withdraw_stuck"),
+    ("wypł", "withdraw_stuck"),
+    ("kill", "kill_switch_v2"),
+    ("proxy", "proxy_like"),
+    ("router", "router_exception"),
+    ("dex", "router_exception"),
+    ("obfusk", "assembly_obfuscation"),
+    ("assembly", "assembly_obfuscation"),
+    ("reflection", "reflection_tax"),
+    ("dynamic", "dynamic_fee"),
+    ("max wallet", "max_wallet"),
+    ("max tx", "max_tx"),
+    ("whitelist", "whitelist_only"),
+    ("trading not open", "trading_not_open"),
+    ("hidden owner", "hidden_owner"),
+    ("reentrancy", "reentrancy_risk"),
+    ("overflow", "overflow_risk"),
+    ("timestamp", "timestamp_dependence"),
+    ("liquidity", "liquidity_removable"),
+    ("audit", "scam_audit_fake"),
     ("external call", "external_call_unchecked"),
 ]
+
 
 def _normalize_detected_from_json(report: dict) -> list:
     out, candidates = [], []
     for key in ["threats", "flags", "issues", "detections"]:
         v = report.get(key)
-        if not v: continue
-        if isinstance(v, list): candidates.extend([str(x) for x in v])
+        if not v:
+            continue
+        if isinstance(v, list):
+            candidates.extend([str(x) for x in v])
         elif isinstance(v, dict):
             for k, val in v.items():
-                if val: candidates.append(k)
+                if val:
+                    candidates.append(k)
     for s in candidates:
         s_l = s.strip().lower()
-        if s_l in EYES_DATA and s_l not in out: out.append(s_l)
+        if s_l in EYES_DATA and s_l not in out:
+            out.append(s_l)
     for s in candidates:
         s_l = s.lower()
         for sub, tid in MAP_RULES:
@@ -313,23 +455,54 @@ def _normalize_detected_from_json(report: dict) -> list:
                 out.append(tid)
     return out
 
+
 @app.route("/last-report-html")
 def last_report_html():
-    path = latest_report_path()
-    if not path:
-        return "<p>Brak raportów.</p>", 404, {"Content-Type": "text/html; charset=utf-8"}
+    # 🔑 priorytet: konkretny path z ANALYZE/by_id (z frontu)
+    path_param = request.args.get("path", "").strip()
+    if path_param:
+        # zabezpieczenie: ścieżka zawsze względna względem APP_ROOT
+        abs_path = os.path.abspath(os.path.join(APP_ROOT, path_param))
+        if not abs_path.startswith(APP_ROOT):
+            return (
+                "<p>Nieprawidłowa ścieżka raportu.</p>",
+                400,
+                {"Content-Type": "text/html; charset=utf-8"},
+            )
+        path = abs_path
+    else:
+        # fallback tylko dla ręcznego wejścia na /last-report-html
+        path = latest_report_path()
+
+    if not path or not os.path.isfile(path):
+        return (
+            "<p>Brak raportów.</p>",
+            404,
+            {"Content-Type": "text/html; charset=utf-8"},
+        )
+
     try:
         rel = os.path.relpath(path, APP_ROOT)
         ext = os.path.splitext(path)[1].lower()
+
         if ext == ".json":
             data = json.load(open(path, "r", encoding="utf-8", errors="ignore"))
-            report = data[-1] if isinstance(data, list) and data else (data if isinstance(data, dict) else {})
-            name = report.get("identity", {}).get("resolved_name") or report.get("name") or "Contract"
+            report = (
+                data[-1] if isinstance(data, list) and data else (data if isinstance(data, dict) else {})
+            )
+            name = (
+                report.get("identity", {}).get("resolved_name")
+                or report.get("name")
+                or "Contract"
+            )
             addr = report.get("address", "?")
-            try: score = float(report.get("score", 0.0))
-            except Exception: score = 0.0
+            try:
+                score = float(report.get("score", 0.0))
+            except Exception:
+                score = 0.0
             badge = _badge_by_score(score)
-            bar_w = max(0, min(100, int((score/10.0)*100)))
+            bar_w = max(0, min(100, int((score / 10.0) * 100)))
+
             header = f"""
             <div style="padding:16px;margin-bottom:12px;background:#0f1114;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.35)">
               <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
@@ -345,15 +518,18 @@ def last_report_html():
                 </div></div>
               </div>
             </div>"""
+
             detected_html = """
               <div style="margin-top:10px;margin-bottom:8px;color:#cfd6dc;font-size:13px;line-height:1.6;opacity:.95">
                 🤝 <strong>Ocena to efekt analizy kodu przez silnik CIS Aurora</strong> — pamiętaj o własnym researchu (DYOR).<br>
                 To nie są porady inwestycyjne — decyzje podejmuj samodzielnie.<br>
                 <span style="opacity:.85">💛 Dziękujemy za zaufanie i wsparcie.</span>
               </div>"""
-            pair_rows, keys = [], (EYES_ORDER[:] if EYES_ORDER else list(EYES_DATA.keys()))
+
+            pair_rows = []
+            keys = EYES_ORDER[:] if EYES_ORDER else list(EYES_DATA.keys())
             for i in range(0, len(keys), 2):
-                pair = keys[i:i+2]
+                pair = keys[i : i + 2]
                 row = "<div style='display:flex;gap:20px;margin:20px 0 10px 0;flex-wrap:wrap'>"
                 for tid in pair:
                     meta = EYES_DATA.get(tid, {})
@@ -371,15 +547,34 @@ def last_report_html():
                       </div>"""
                 row += "</div>"
                 pair_rows.append(row)
-            analyze_html = ("<div style='margin-top:16px;margin-bottom:6px;font-weight:700;border-left:4px solid #3b82f6;padding-left:8px'>Co analizujemy (stałe obszary audytu)</div>" + "".join(pair_rows))
-            return header + detected_html + analyze_html, 200, {"Content-Type": "text/html; charset=utf-8"}
 
+            analyze_html = (
+                "<div style='margin-top:16px;margin-bottom:6px;font-weight:700;border-left:4px solid #3b82f6;padding-left:8px'>Co analizujemy (stałe obszary audytu)</div>"
+                + "".join(pair_rows)
+            )
+            return (
+                header + detected_html + analyze_html,
+                200,
+                {"Content-Type": "text/html; charset=utf-8"},
+            )
+
+        # TXT fallback (stare raporty)
         txt = open(path, "r", encoding="utf-8", errors="ignore").read()
-        item = _parse_first_line_csv(txt) or {"name": "?", "address": "?", "score": "0", "label": "RISK"}
-        name = item.get("name", "?"); addr = item.get("address", "?")
-        try: score = float(item.get("score", 0.0))
-        except Exception: score = 0.0
-        badge = _badge_by_score(score); bar_w = max(0, min(100, int((score/10.0)*100)))
+        item = _parse_first_line_csv(txt) or {
+            "name": "?",
+            "address": "?",
+            "score": "0",
+            "label": "RISK",
+        }
+        name = item.get("name", "?")
+        addr = item.get("address", "?")
+        try:
+            score = float(item.get("score", 0.0))
+        except Exception:
+            score = 0.0
+        badge = _badge_by_score(score)
+        bar_w = max(0, min(100, int((score / 10.0) * 100)))
+
         header = f"""
         <div style="padding:16px;margin-bottom:12px;background:#0f1114;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.35)">
           <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
@@ -394,20 +589,25 @@ def last_report_html():
             </div></div>
           </div>
         </div>"""
+
         detected_html = """
           <div style="margin-top:10px;margin-bottom:8px;color:#cfd6dc;font-size:13px;line-height:1.6;opacity:.95">
             🤝 <strong>Ocena to efekt analizy kodu przez silnik CIS Aurora</strong> — pamiętaj o własnym researchu (DYOR).<br>
             To nie są porady inwestycyjne — decyzje podejmuj samodzielnie.<br>
             <span style="opacity:.85">💛 Dziękujemy za zaufanie i wsparcie.</span>
           </div>"""
-        pair_rows, keys = [], (EYES_ORDER[:] if EYES_ORDER else list(EYES_DATA.keys()))
+
+        pair_rows = []
+        keys = EYES_ORDER[:] if EYES_ORDER else list(EYES_DATA.keys())
         for i in range(0, len(keys), 2):
-            pair = keys[i:i+2]
+            pair = keys[i : i + 2]
             row = "<div style='display:flex;gap:20px;margin:20px 0 10px 0;flex-wrap:wrap'>"
             for tid in pair:
                 meta = EYES_DATA.get(tid, {})
-                icon = meta.get("icon", "🔎"); title = meta.get("label", tid)
-                lines = meta.get("analyze", []); text = " ".join(lines[:4])
+                icon = meta.get("icon", "🔎")
+                title = meta.get("label", tid)
+                lines = meta.get("analyze", [])
+                text = " ".join(lines[:4])
                 row += f"""
                   <div style="flex:1;min-width:280px;padding:14px;border-radius:12px;background:#0e1016;box-shadow:0 2px 10px rgba(0,0,0,.28)">
                     <div style="display:flex;gap:10px;align-items:flex-start">
@@ -416,12 +616,26 @@ def last_report_html():
                       <div style="font-size:13px;line-height:1.55;opacity:.92;margin-top:4px">{text}</div></div>
                     </div>
                   </div>"""
-            row += "</div>"; pair_rows.append(row)
-        analyze_html = ("<div style='margin-top:16px;margin-bottom:6px;font-weight:700;border-left:4px solid #3b82f6;padding-left:8px'>Co analizujemy (stałe obszary audytu)</div>" + "".join(pair_rows))
-        return header + detected_html + analyze_html, 200, {"Content-Type": "text/html; charset=utf-8"}
+            row += "</div>"
+            pair_rows.append(row)
+
+        analyze_html = (
+            "<div style='margin-top:16px;margin-bottom:6px;font-weight:700;border-left:4px solid #3b82f6;padding-left:8px'>Co analizujemy (stałe obszary audytu)</div>"
+            + "".join(pair_rows)
+        )
+        return (
+            header + detected_html + analyze_html,
+            200,
+            {"Content-Type": "text/html; charset=utf-8"},
+        )
 
     except Exception as e:
-        return f"<pre>{e}</pre>", 500, {"Content-Type": "text/html; charset=utf-8"}
+        return (
+            f"<pre>{e}</pre>",
+            500,
+            {"Content-Type": "text/html; charset=utf-8"},
+        )
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
