@@ -342,7 +342,7 @@ def analyze():
                     "summary": summary,
                 }
             ),
-            (200 if status == "ok" else 500),
+            (200 if status == 0 else 500),
         )
 
     except subprocess.TimeoutExpired:
@@ -395,6 +395,21 @@ def _badge_by_score(sc: float) -> str:
         return "<span style='padding:6px 12px;border-radius:999px;background:#ffb703;color:#111;font-weight:700'>REVIEW</span>"
     # NO-GO
     return "<span style='padding:6px 12px;border-radius:999px;background:#d62828;color:#fff;font-weight:700'>NO-GO</span>"
+
+
+def _badge_for_decision(decision: str, score: float) -> str:
+    """
+    Badge przede wszystkim wg decyzji z core (GO / REVIEW / NO-GO).
+    Jeśli brak decyzji – używamy progów ze score.
+    """
+    d = (decision or "").upper()
+    if d == "GO":
+        return _badge_by_score(9.0)
+    if d == "REVIEW":
+        return _badge_by_score(7.0)
+    if d == "NO-GO":
+        return _badge_by_score(0.0)
+    return _badge_by_score(score)
 
 
 MAP_RULES = [
@@ -503,7 +518,18 @@ def last_report_html():
                 score = float(report.get("score", 0.0))
             except Exception:
                 score = 0.0
-            badge = _badge_by_score(score)
+
+            # decyzja z core (fallback: progi ze score)
+            decision = (report.get("decision") or "").upper()
+            if not decision:
+                if score >= 8.0:
+                    decision = "GO"
+                elif score >= 6.60:
+                    decision = "REVIEW"
+                else:
+                    decision = "NO-GO"
+
+            badge = _badge_for_decision(decision, score)
             bar_w = max(0, min(100, int((score / 10.0) * 100)))
 
             header = f"""
@@ -522,14 +548,12 @@ def last_report_html():
               </div>
             </div>"""
 
-            decision = (report.get("decision") or "").upper()
             if decision == "GO":
                 desc_block = """
               <div class="desc-go" style="margin-top:6px;margin-bottom:6px;color:#d1fae5;font-size:13px;line-height:1.6;">
                 <b>GO — Kod wygląda solidnie.</b><br>
                 Kontrakt przeszedł analizy CIS Aurora bez istotnych sygnałów zagrożenia.
                 Nie wykryliśmy negatywnych wzorców, blacklist, honeypotów ani ryzykownych konstrukcji.
-                <br><br>To nie są porady inwestycyjne — wykonaj własny research (DYOR).
               </div>"""
             elif decision == "REVIEW":
                 desc_block = """
@@ -537,7 +561,7 @@ def last_report_html():
                 <b>REVIEW — wymagany własny research.</b><br>
                 Kod wygląda poprawnie, jednak pewne elementy wymagają dodatkowej weryfikacji manualnej 
                 oraz zaufania do zespołu (np. uprawnienia właściciela, duża centralziacja, proxy, zmienne parametry).
-                <br><br>Nie widzimy typowych wzorców scamowych, ale decyzja należy do Ciebie.
+                <br>Nie widzimy typowych wzorców scamowych, ale decyzja należy do Ciebie.
               </div>"""
             else:
                 desc_block = """
@@ -545,16 +569,11 @@ def last_report_html():
                 <b>NO-GO — nie rekomendujemy.</b><br>
                 Wykryto wzorce wysokiego ryzyka (np. blacklist, honeypot, manipulacje podatkami,
                 niebezpieczne uprawnienia właściciela lub ukryte funkcje).
-                <br><br>Kategorycznie odradzamy interakcję z tym kontraktem — ryzyko utraty środków jest wysokie.
+                <br>Kategorycznie odradzamy interakcję z tym kontraktem — ryzyko utraty środków jest wysokie.
               </div>"""
 
-            detected_html = f"""
-              {desc_block}
-              <div style="margin-top:10px;margin-bottom:8px;color:#cfd6dc;font-size:13px;line-height:1.6;opacity:.95">
-                🤝 <strong>Ocena to efekt analizy kodu przez silnik CIS Aurora</strong> — pamiętaj o własnym researchu (DYOR).<br>
-                To nie są porady inwestycyjne — decyzje podejmuj samodzielnie.<br>
-                <span style="opacity:.85">💛 Dziękujemy za zaufanie i wsparcie.</span>
-              </div>"""
+            # tylko blok opisu decyzji – bez dodatkowego DYOR-bloku
+            detected_html = desc_block
 
             pair_rows = []
             keys = EYES_ORDER[:] if EYES_ORDER else list(EYES_DATA.keys())
@@ -620,12 +639,8 @@ def last_report_html():
           </div>
         </div>"""
 
-        detected_html = """
-          <div style="margin-top:10px;margin-bottom:8px;color:#cfd6dc;font-size:13px;line-height:1.6;opacity:.95">
-            🤝 <strong>Ocena to efekt analizy kodu przez silnik CIS Aurora</strong> — pamiętaj o własnym researchu (DYOR).<br>
-            To nie są porady inwestycyjne — decyzje podejmuj samodzielnie.<br>
-            <span style="opacity:.85">💛 Dziękujemy za zaufanie i wsparcie.</span>
-          </div>"""
+        # TXT: bez dodatkowego DYOR-bloku, tylko header + sekcja „Co analizujemy”
+        detected_html = ""
 
         pair_rows = []
         keys = EYES_ORDER[:] if EYES_ORDER else list(EYES_DATA.keys())
@@ -642,7 +657,7 @@ def last_report_html():
                   <div style="flex:1;min-width:280px;padding:14px;border-radius:12px;background:#0e1016;box-shadow:0 2px 10px rgba(0,0,0,.28)">
                     <div style="display:flex;gap:10px;align-items:flex-start">
                       <div style="font-size:22px">{icon}</div>
-                      <div><div style="font-weight:700'>{title}</div>
+                      <div><div style="font-weight:700">{title}</div>
                       <div style="font-size:13px;line-height:1.55;opacity:.92;margin-top:4px">{text}</div></div>
                     </div>
                   </div>"""
@@ -670,3 +685,4 @@ def last_report_html():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
     app.run(host="0.0.0.0", port=port, debug=False)
+#test
