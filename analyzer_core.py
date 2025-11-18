@@ -1,5 +1,5 @@
 # ==================== CIS_OFF_AURORA_v3_3.py — PART 1/5 ====================
-# Aurora v3.2 (NEXUS) — "CIS Integrated+"
+# Aurora v3.3 (NEXUS) — "CIS Integrated+"
 # Przywrócone z v2.7:
 #   • Oracle Touch (ownership surface, mutable caps, one-block, lock hints, secrets, heatmap)
 #   • Reachability (pause/fee/upgrade) + Explain v2
@@ -11,7 +11,7 @@
 # NOWE — Patch #31 (v3.2):
 #   • Governance-aware RUG_DISTANCE v2 (timelock/multisig/proxyadmin/governor)
 #   • Proxy softening pod governance, LayerZero/OFT whitelist
-#   • Blue-chip floor (adresy znanych tokenów), nowy label „GOV-UPGRADABLE (review)”
+#   • Nowy label „GOV-UPGRADABLE (review)” dla proxy pod governance
 #   • Nazwa tokena w ANALYZE/*.txt i w logach zamiast „Contract”
 
 import os, re, json, time, argparse, requests
@@ -28,11 +28,13 @@ BANNER = r"""
 ║  CIS — Contract Integrator System | OFF Console — AURORA v3.3 (NX)  ║
 ║  Core: ERC-20 Heuristics + Oracle Touch + DAO/Router/Labeling + Gv. ║
 ╚══════════════════════════════════════════════════════════════════════╝
-Legend: GOOD (≥8.0) | RISK (6.5–7.99) | GOV-UPGRADABLE (review) | EXTREME (<6.5)
+Legend: GO (≥7.90) | REVIEW (6.5–7.89) | NO-GO (≤6.49)
+Decision: GO / REVIEW / NO-GO + confidence (LOW/MED/HIGH).
+Aurora CORE upgrade: prace nad wersją 4.0 (STRICT anti-scam).
 """
 
 # ------------------ ENV / Config ------------------
-ETHERSCAN_API_KEY = "DAETNG8213K5PSWVNUVUNX1B17A9FM3XM1"
+ETHERSCAN_API_KEY = os.environ.get("ETHERSCAN_API_KEY", "A9GWHSAGA7K6BY8Q9X274MRT11JSIZJD7U")
 
 GOOD_SNAP_MIN = float(os.getenv("GOOD_SNAP_MIN", "7.60"))
 REPORT_MODE   = os.getenv("AURORA_REPORT_MODE", "BRIEF")      # BRIEF | VERBOSE
@@ -109,6 +111,8 @@ flag_explanations = {
     'sellCount': "Licznik SELL (często dynamiczne fee/limity).",
     'balance_wipe_swap': "Wipe sald przy swapie (nienormatywny ERC-20).",
     'fake_burn_mint_to_addr': "„Burn” maskujący mint na adres.",
+    'fake_burn_to_owner': "Burn, który realnie winduje saldo ownera / przerzuca środki pod właściciela.",
+    'fake_renounce': "RenounceOwnership bez ustawienia owner=0x0 – fałszywe oddanie kontroli.",
     'tx_origin_logic': "Logika warunkowana tx.origin (origin-gated).",
     'generic_suspicious_fn_name': "Podejrzane nazwy funkcji finansowych.",
     'generic_transfer_call': "Bezpośrednie .transfer() (ryzyko drenażu).",
@@ -119,6 +123,15 @@ flag_explanations = {
     'manual_overflow_checks': "Ręczne require/assert zamiast SafeMath (styl 0.4.x).",
     # v3.0 special
     'router_exception': "Znany DEX Router – neutralizacja skimmer false-positive.",
+    # ctor/mint/mint-role diagnostics
+    'ctor_mint_param': "Mint w konstruktorze do parametru (treasury/vesting) – możliwy rozkład początkowy.",
+    'ctor_assign_full_supply_to_deployer': "Cała podaż przypisana deployerowi w konstruktorze.",
+    'mint_role_based': "Mint kontrolowany rolą (MINTER_ROLE / ownerOrMinter / IMinter / setMinter).",
+    'mint_capped': "Mint z ograniczeniem maxSupply/cap.",
+    'mint_uncapped': "Mint bez twardego maxSupply/cap (emisja potencjalnie nieograniczona).",
+    'fake_sell_event': "Event Transfer do pary z 1 tokenem – symulacja SELL w logach.",    'antibot_early_list': "Lista anty-bot na pierwsze bloki (deadBlocks / launchBlock) — nie traktowana jak twarda blacklist.",
+    'p2p_only_list': "Lista działająca tylko na transfery P2P (user↔user), bez blokowania rynku na parze LP.",
+
 }
 
 # ------------------ Kategorie / wagi ------------------
@@ -140,9 +153,9 @@ categories = {
     "Rug: LP u właściciela / brak locka": ['lp_to_owner_addLiquidity'],
     "Skimmer ETH / drenaż do tax walleta": ['eth_skimmer_on_sell','generic_transfer_call','generic_send_fee_wallet_in_body'],
     "Backdoor allowance/kradzież": ['allowance_bypass_tax_wallet'],
-    "Manipulacja eventami / burn obfuscation": ['conditional_transfer_event','dead_to_zero_swap','silent_drop_no_event'],
+    "Manipulacja eventami / burn obfuscation": ['conditional_transfer_event','dead_to_zero_swap','silent_drop_no_event','fake_sell_event'],
     "Wykryto limiter transakcji": ['sellCount','maxTxAmount','maxWalletSize'],
-    "Nienormatywny ERC-20: wipe/mint pod burnem": ['balance_wipe_swap','fake_burn_mint_to_addr'],
+    "Nienormatywny ERC-20: wipe/mint pod burnem": ['balance_wipe_swap','fake_burn_mint_to_addr','fake_burn_to_owner','fake_renounce'],
     "Origin-gated logika": ['tx_origin_logic'],
     "Podejrzane funkcje finansowe": ['generic_suspicious_fn_name','generic_transfer_call','generic_send_fee_wallet_in_body'],
     "Legacy CEX / Treasury Token (statyczny)": ['legacy_cex_signature','manual_overflow_checks','burn_nonstandard'],
@@ -155,7 +168,7 @@ category_weights = {
     "Wykryto funkcję mint": 4,
     "Mint 100% do ownera": 4,
     "Cooldown / Tax-Router Drain": 4,
-    "OpenZeppelin w kodzie (OZ)": 2,
+    "OpenZeppelin w kodzie (OZ)": 0,
     "Duża podaż (≥ 5 000 000 000)": 2,
     "Charakterystyka honeypot": 4,
     "Wykryto mechanizmy swap": 4,
@@ -164,7 +177,7 @@ category_weights = {
     "Właściciel może wypłacać środki": 2,
     "Wykryto kontrakt aktualizowalny": 2,
     "Centralizacja kontroli dostępu": 2,
-    "Wykryto przestarzałe wzorce": 2,
+    "Wykryto przestarzałe wzorce": 1,
     "Rug: LP u właściciela / brak locka": 4,
     "Skimmer ETH / drenaż do tax walleta": 4,
     "Backdoor allowance/kradzież": 4,
@@ -262,7 +275,7 @@ def _make_job_id(address: str) -> str:
     return f"{ts}{ms:03d}_{addr}"
 
 
-# ==================== CIS_OFF_AURORA_v3_2.py — PART 2/5 ====================
+# ==================== CIS_OFF_AURORA_v3_3.py — PART 2/5 ====================
 
 # -------- High-Tax detection --------
 HIGH_TAX_VARNAMES = r'(?:_?(?:initial|final)?(?:Buy|Sell)?(?:Tax|Fee)|taxFee|marketingFee|devFee|_transferTax|buyTax|sellTax|fee)'
@@ -307,13 +320,59 @@ def _infer_percent(value: int, src: str) -> float:
 
 def detect_high_tax_over_25(source_code: str):
     hits = []
+    extreme_hits = []
+    inactive_hits = []
+
+    # pomocnicze: uchwycenie ścieżek SELL / TRANSFER
+    transfer_body = _get_function_body(source_code, "_transfer") or ""
+    sell_path_ctx = bool(
+        re.search(r'(recipient|to)\s*==\s*(uniswapV2Pair|pair)', transfer_body, re.IGNORECASE)
+    )
+
+    # standard ≥25%
     for m in ASSIGN_NUM_PATTERN.finditer(source_code):
-        var, raw = m.group(1), int(m.group(2)); pct = _infer_percent(raw, source_code)
-        if pct >= 25.0: hits.append((var, pct))
+        var, raw = m.group(1), int(m.group(2))
+        pct = _infer_percent(raw, source_code)
+
+        if pct >= 25.0:
+            # sprawdź, czy zmienna realnie występuje w ścieżce _transfer
+            used_in_transfer = bool(re.search(re.escape(var), transfer_body, re.IGNORECASE))
+
+            # sprawdź powiązanie z SELL (recipient==pair)
+            used_in_sell = (
+                used_in_transfer and sell_path_ctx
+            )
+
+            if used_in_sell:
+                hits.append((var, pct))
+            else:
+                inactive_hits.append((var, pct))  # fee istnieje, ale brak aktywnego użycia
+
+    # extreme ≥60% powiązane z _transfer
+    for m in ASSIGN_NUM_PATTERN.finditer(source_code):
+        var2, raw2 = m.group(1), int(m.group(2))
+        pct2 = _infer_percent(raw2, source_code)
+        if pct2 >= 60.0:
+            if re.search(r'_transfer\s*\([^)]*\)', source_code, re.IGNORECASE):
+                if re.search(var2, source_code, re.IGNORECASE):
+                    extreme_hits.append((var2, pct2))
+
+    # setTax() calls (z tą samą logiczną walidacją)
     for m in CALL_NUM_PATTERN.finditer(source_code):
-        raw = int(m.group(1)); pct = _infer_percent(raw, source_code)
-        if pct >= 25.0: hits.append(("setTax/Fees", pct))
-    return hits
+        raw = int(m.group(1))
+        pct = _infer_percent(raw, source_code)
+
+        if pct >= 25.0:
+            used_in_transfer = bool(re.search(r'(tax|fee)', transfer_body, re.IGNORECASE))
+            if used_in_transfer:
+                hits.append(("setTax/Fees", pct))
+            else:
+                inactive_hits.append(("setTax/Fees", pct))
+
+    # zwracamy również inactive_hits do soft flagów
+    return hits, extreme_hits, inactive_hits
+
+    
 
 def detect_any_tax_settings(source_code: str):
     any_hits = []
@@ -325,6 +384,133 @@ def detect_any_tax_settings(source_code: str):
         any_hits.append(("setTax/Fees", pct))
     return any_hits
 
+
+# === NEW FUNCTION: TAX HARMONIZATION v1 ===
+def detect_tax_harmonization(source_code: str):
+    """
+    Próba oceny tego, czy kontrakt ma:
+      • spójne fee BUY/SELL (rozsądny zakres),
+      • górny limit (cap) na podatki,
+      • mechanizm czasowy (timelock) dla zmian fee.
+    Na razie czysto diagnostyczne — nie zmienia scoringu, tylko buduje kontekst.
+    """
+    harmonization = {
+        "has_buy_fee": False,
+        "has_sell_fee": False,
+        "has_transfer_fee": False,
+        "max_tax_cap": None,
+        "has_tax_cap_variable": False,
+        "has_decrease_only": False,
+        "has_timelock": False,
+        "raw_hits": [],
+    }
+
+    # Wyszukiwanie BUY/SELL/TRANSFER w nazwach zmiennych/parametrów
+    for m in ASSIGN_NUM_PATTERN.finditer(source_code):
+        var, raw = m.group(1), int(m.group(2))
+        pct = _infer_percent(raw, source_code)
+        lower = var.lower()
+
+        if "buy" in lower and ("tax" in lower or "fee" in lower):
+            harmonization["has_buy_fee"] = True
+            harmonization["raw_hits"].append(("buy", var, pct))
+        elif "sell" in lower and ("tax" in lower or "fee" in lower):
+            harmonization["has_sell_fee"] = True
+            harmonization["raw_hits"].append(("sell", var, pct))
+        elif ("transfer" in lower or "tx" in lower) and ("tax" in lower or "fee" in lower):
+            harmonization["has_transfer_fee"] = True
+            harmonization["raw_hits"].append(("transfer", var, pct))
+
+    # Szukanie wzorców "maxTax", "maxFee", "maxSwapFee" itd.
+    cap_pattern = re.compile(r'\b(maxTax|maxFee|maxBuyTax|maxSellTax|maxSwapFee|maxFeePercentage)\b', re.IGNORECASE)
+    cap_hits = cap_pattern.findall(source_code)
+    if cap_hits:
+        harmonization["has_tax_cap_variable"] = True
+
+    num_assign_re = re.compile(
+        r'\b(maxTax|maxFee|maxBuyTax|maxSellTax|maxSwapFee|maxFeePercentage)\b\s*=\s*(\d+)',
+        re.IGNORECASE
+    )
+    cap_values = []
+    for m in num_assign_re.finditer(source_code):
+        raw = int(m.group(2))
+        pct = _infer_percent(raw, source_code)
+        cap_values.append(pct)
+
+    if cap_values:
+        harmonization["max_tax_cap"] = min(cap_values)
+
+    # Szukanie wzorca "onlyOwner" + "decreaseTax"/"reduceTax"
+    decrease_only_re = re.compile(
+        r'function\s+(decreaseTax|reduceTax|lowerTax|decreaseFee|reduceFee|lowerFee)\s*\([^)]*\)\s*(external|public).*?onlyOwner',
+        re.IGNORECASE | re.DOTALL
+    )
+    if decrease_only_re.search(source_code):
+        harmonization["has_decrease_only"] = True
+
+    # Timelock pod zmiany podatków (wykorzystujemy istniejącą heurystykę)
+    harmonization["has_timelock"] = detect_timelock(source_code)
+
+    return harmonization
+
+
+# === NEW FUNCTION: TAX HARMONIZATION v1 ===
+def detect_tax_harmonization(source_code: str):
+    """
+    Analiza spójności podatków — diagnostyka wielowarstwowych fee.
+    Nie zmienia punktacji bazowej, tylko dodaje flagi pomocnicze.
+    """
+    flags = set()
+    tax_vars = {}
+
+    # 1. Zbieramy wszystkie buy/sell/transfer tax
+    for m in ASSIGN_NUM_PATTERN.finditer(source_code):
+        var, raw = m.group(1), int(m.group(2))
+        pct = _infer_percent(raw, source_code)
+        tax_vars[var.lower()] = pct
+
+    for m in CALL_NUM_PATTERN.finditer(source_code):
+        raw = int(m.group(1))
+        pct = _infer_percent(raw, source_code)
+        tax_vars["setTax/Fees"] = pct
+
+    # 2. Wykrywanie niespójności buy/sell
+    buy = None
+    sell = None
+
+    for k, v in tax_vars.items():
+        if "buy" in k:
+            buy = v
+        if "sell" in k:
+            sell = v
+
+    if buy is not None and sell is not None:
+        if sell >= buy * 3 and sell >= 10:
+            flags.add("tax_sell_spike")
+
+        if abs(sell - buy) >= 10:
+            flags.add("tax_inconsistent")
+
+    # 3. Wykrycie dual-path
+    transfer_fn = _get_function_body(source_code, "_transfer") or ""
+    if (
+        re.search(r'buyTax|_buyTax|initialBuyFee', transfer_fn, re.IGNORECASE)
+        and re.search(r'sellTax|_sellTax|initialSellFee', transfer_fn, re.IGNORECASE)
+        and buy is not None
+        and sell is not None
+        and buy != sell
+    ):
+        flags.add("tax_dual_path")
+
+    # 4. Możliwość zmiany fee po openTrading (diagnostycznie)
+    if (
+        re.search(r'openTrading', source_code, re.IGNORECASE)
+        and re.search(r'setTax|setFees?|updateFee', source_code, re.IGNORECASE)
+    ):
+        flags.add("tax_can_change_after_open")
+
+    return sorted(flags)
+
 # -------- Market Matrix --------
 def _get_function_body(source: str, name: str) -> Optional[str]:
     for f in FUNC_DEF_RE.finditer(source):
@@ -334,31 +520,193 @@ def _get_function_body(source: str, name: str) -> Optional[str]:
             body_end = _brace_match_end(source, body_open)
             if body_end is None: continue
             return source[body_open+1:body_end]
-    return None
+
+def detect_pause_unpause_hard(source_code: str) -> dict:
+    """
+    HARD STRICT pause/unpause detector (Aurora v2).
+    Rozszerzenia:
+      • rozróżnienie CZYSTEGO OZ Pausable (safe)
+      • wykrywanie custom pause bez unpause (hard risk)
+      • wykrywanie unreachable pause/unpause (soft diagnostic)
+      • wykrywanie onlyOwner/onlyRole guards
+      • wykrywanie „stealth pause” (pauza pod inną nazwą)
+    """
+    info = {
+        "has_pausable_import": False,
+        "has_pause_fn": False,
+        "has_unpause_fn": False,
+        "pause_guard": None,
+        "unpause_guard": None,
+        "stealth_pause": False,
+        "custom_pause": False,
+        "unreachable_pause": False,
+        "unreachable_unpause": False,
+    }
+
+    # 1) Pausable / PausableUpgradeable import
+    if re.search(r"\bPausable(?:Upgradeable)?\b", source_code):
+        info["has_pausable_import"] = True
+
+    # 2) Funkcje pause / unpause
+    pause_def = re.search(r'function\s+pause\s*\([^)]*\)\s*(public|external)?', source_code, re.IGNORECASE)
+    unpause_def = re.search(r'function\s+unpause\s*\([^)]*\)\s*(public|external)?', source_code, re.IGNORECASE)
+
+    if pause_def:
+        info["has_pause_fn"] = True
+    if unpause_def:
+        info["has_unpause_fn"] = True
+
+    # 3) GUARDY: onlyOwner / onlyRole / timelock
+    if pause_def:
+        body_open = source_code.find('{', pause_def.end())
+        body_end  = _brace_match_end(source_code, body_open)
+        if body_open != -1 and body_end:
+            body = source_code[body_open:body_end]
+            if re.search(r'onlyOwner', body): info["pause_guard"] = "onlyOwner"
+            elif re.search(r'onlyRole', body): info["pause_guard"] = "onlyRole"
+            elif re.search(r'TimelockController', source_code): info["pause_guard"] = "timelock"
+
+    if unpause_def:
+        body_open = source_code.find('{', unpause_def.end())
+        body_end  = _brace_match_end(source_code, body_open)
+        if body_open != -1 and body_end:
+            body = source_code[body_open:body_end]
+            if re.search(r'onlyOwner', body): info["unpause_guard"] = "onlyOwner"
+            elif re.search(r'onlyRole', body): info["unpause_guard"] = "onlyRole"
+            elif re.search(r'TimelockController', source_code): info["unpause_guard"] = "timelock"
+
+    # 4) STEALTH PAUSE – funkcje, które włączają pauzę pod inną nazwą
+    stealth_pause_rx = re.compile(
+        r'(stopTrading|halt|freeze|lockTransfers|enablePause|disableTrading)',
+        re.IGNORECASE
+    )
+    if stealth_pause_rx.search(source_code):
+        info["stealth_pause"] = True
+
+    # 5) CUSTOM PAUSE (brak Pausable import + jest pause())
+    if info["has_pause_fn"] and not info["has_pausable_import"]:
+        info["custom_pause"] = True
+
+    # 6) UNREACHABLE pause/unpause – deklaracja bez _pause()/_unpause()
+    if pause_def:
+        fn_body = _get_function_body(source_code, "pause") or ""
+        if not re.search(r'(_pause|paused\s*=\s*true)', fn_body):
+            info["unreachable_pause"] = True
+
+    if unpause_def:
+        fn_body = _get_function_body(source_code, "unpause") or ""
+        if not re.search(r'(_unpause|paused\s*=\s*false)', fn_body):
+            info["unreachable_unpause"] = True
+
+    return info
 
 def _blocks_sell_reasons(code: str) -> List[str]:
     r = []
+    # klasyczne blokady SELL na parę
     if re.search(r'require\s*\(\s*(?:recipient|to)\s*!=\s*(?:uniswapV2Pair|pair)\s*,', code, re.IGNORECASE):
         r.append("require(to!=pair)")
     if re.search(r'if\s*\(\s*(?:recipient|to)\s*==\s*(?:uniswapV2Pair|pair)\s*\)\s*(?:revert|require\s*\()', code, re.IGNORECASE):
         r.append("if(to==pair)→revert/require")
+
+    # rozszerzone — miękkie i twarde blokady sprzedaży
+    if re.search(r'cannotSell|sellLocked|sellLock', code, re.IGNORECASE):
+        r.append("sell lock keyword")
+    if re.search(r'sellCooldown|cooldownSell', code, re.IGNORECASE):
+        r.append("sell cooldown")
+    if re.search(r'if\s*\(\s*!sellEnabled', code, re.IGNORECASE):
+        r.append("sellEnabled==false gate")
+    if re.search(r'if\s*\(\s*amount\s*>=\s*_maxSell', code, re.IGNORECASE):
+        r.append("maxSell limit")
+    if re.search(r'revert\s*\(\s*"sell', code, re.IGNORECASE):
+        r.append('revert("sell…")')
+
     return r
 
 def _blocks_buy_reasons(code: str) -> List[str]:
     r = []
+    # klasyczne blokady BUY z pary
     if re.search(r'require\s*\(\s*(?:sender|from)\s*!=\s*(?:uniswapV2Pair|pair)\s*,', code, re.IGNORECASE):
         r.append("require(from!=pair)")
     if re.search(r'if\s*\(\s*(?:sender|from)\s*==\s*(?:uniswapV2Pair|pair)\s*\)\s*(?:revert|require\s*\()', code, re.IGNORECASE):
         r.append("if(from==pair)→revert/require")
+
+    # rozszerzone — blokady kupna / anty-bot
+    if re.search(r'onlyTaxFreeBuy|blockBuy|buyCooldown|antiBuyBot', code, re.IGNORECASE):
+        r.append("buy gate / anti-bot")
+    if re.search(r'if\s*\(\s*!buyEnabled', code, re.IGNORECASE):
+        r.append("buyEnabled==false gate")
+
     return r
 
 def _blocks_p2p_reasons(code: str) -> List[str]:
     r = []
+    # whitelisty / blacklisty / bot-listy
     if re.search(r'\b(whitelist|blacklist|bots)\b.*(require|revert)', code, re.IGNORECASE | re.DOTALL):
         r.append("list gate (wl/bl/bots)")
+    # cooldown na transfery p2p
     if re.search(r'\bcooldown\b', code, re.IGNORECASE):
         r.append("cooldown gate")
+    # dodatkowe blokady transferów użytkownik↔użytkownik
+    if re.search(r'blockedSellers|blockedBuyers|blockedAddresses', code, re.IGNORECASE):
+        r.append("blocked address list")
+    if re.search(r'if\s*\(\s*!canTransfer', code, re.IGNORECASE):
+        r.append("canTransfer==false gate")
+
     return r
+
+def detect_list_gates(source: str) -> Dict[str, object]:
+    """
+    Kontekstowe wykrywanie blacklist/whitelist/bots w kontekście realnych bramek transferu.
+
+    Zwraca:
+      • has_blacklist / has_whitelist / has_bots      – czy w ogóle występują w kodzie
+      • hard_blacklist / hard_whitelist               – twarde require/if→revert w _transfer
+      • p2p_only                                      – gate dotyczy user↔user (bez pary LP)
+      • early_blocks_only                             – gate spięty z block.number / deadBlocks (typowy anty-bot)
+    """
+    has_blacklist = bool(re.search(r'\bblacklist\b', source, re.IGNORECASE))
+    has_whitelist = bool(re.search(r'\bwhitelist\b', source, re.IGNORECASE))
+    has_bots      = bool(re.search(r'\bbots?\b', source, re.IGNORECASE))
+
+    transfer_body = _get_function_body(source, "_transfer") or ""
+    hard_blacklist = False
+    hard_whitelist = False
+    p2p_only = False
+    early_blocks_only = False
+
+    if transfer_body:
+        # Blacklist / bots — twarde bramki na transferach (require / revert)
+        if (
+            re.search(r'require\s*\([^)]*(blacklist|isBlacklisted|_blacklisted|bots)[^)]*\)', transfer_body, re.IGNORECASE)
+            or re.search(r'if\s*\([^)]*(blacklist|isBlacklisted|_blacklisted|bots)[^)]*\)\s*(revert|require)\b', transfer_body, re.IGNORECASE)
+        ):
+            hard_blacklist = True
+
+        # Whitelist — adres musi być na liście, żeby przejść (gate)
+        if (
+            re.search(r'require\s*\([^)]*(whitelist|isWhitelisted|_whitelist)[^)]*\)', transfer_body, re.IGNORECASE)
+            or re.search(r'if\s*\([^)]*(whitelist|isWhitelisted|_whitelist)[^)]*\)\s*(revert|require)\b', transfer_body, re.IGNORECASE)
+        ):
+            hard_whitelist = True
+
+        # P2P-only: brak odniesień do pary (gate dotyczy user↔user, nie BUY/SELL z LP)
+        if (hard_blacklist or hard_whitelist) and not re.search(r'(uniswapV2Pair|pair)', transfer_body, re.IGNORECASE):
+            p2p_only = True
+
+        # Early-blocks: gate powiązany z block.number / launchBlock / deadBlocks → typowy anty-bot
+        if (hard_blacklist or hard_whitelist) and re.search(r'block\.(number|timestamp)', transfer_body, re.IGNORECASE):
+            if re.search(r'(launchBlock|startBlock|tradingBlock|_deadBlocks|deadBlocks)', transfer_body, re.IGNORECASE):
+                early_blocks_only = True
+
+    return {
+        "has_blacklist": has_blacklist,
+        "has_whitelist": has_whitelist,
+        "has_bots": has_bots,
+        "hard_blacklist": hard_blacklist,
+        "hard_whitelist": hard_whitelist,
+        "p2p_only": p2p_only,
+        "early_blocks_only": early_blocks_only,
+    }
 
 def build_market_matrix(source: str) -> Dict[str, Dict[str, str]]:
     code = _get_function_body(source, "_transfer") or ""
@@ -375,6 +723,88 @@ HAS_ROLE_CHECK = re.compile(r'hasRole\s*\(\s*([A-Za-z0-9_]+)\s*,', re.IGNORECASE
 TIMELOCK_HINT  = re.compile(r'\bTimelockController\b|\bTIMELOCK_ROLE\b', re.IGNORECASE)
 MULTISIG_HINT  = re.compile(r'\bOwners\b|\bconfirmTransaction\b|\brequired\b', re.IGNORECASE)
 GOVERNOR_HINT  = re.compile(r'\bGovernor\b|\bGovernorCompatibility\b|\bGovernorVotes\b', re.IGNORECASE)
+
+def detect_owner_roles(source: str) -> Dict[str, object]:
+    """
+    Aurora v2 — detect_owner_roles:
+    Zbiera pełny obraz kontroli właściciela/DAO:
+      • które funkcje są guarded onlyOwner / onlyRole / timelock / multisig
+      • jakie operacje są chronione (mint/burn/fee/pause/upgrade/router/role)
+      • globalne sygnały governance (timelock, multisig, proxyadmin, governor)
+    Funkcja jest czysto diagnostyczna – NIE zmienia scoringu,
+    używana jako input dla UI/MATRIX / Owner-Controlled Advisory.
+    """
+    info = {
+        "has_timelock": detect_timelock(source),
+        "has_multisig": detect_multisig(source),
+        "has_proxy_admin": detect_proxy_admin(source),
+        "has_governor": detect_governor(source),
+        "owner_guarded": [],
+        "role_guarded": [],
+        "timelock_guarded": [],
+        "multisig_guarded": [],
+    }
+
+    sensitive_ops = (
+        "mint", "burn",
+        "pause", "unpause", "openTrading",
+        "setTax", "setFee", "setFees", "updateFee",
+        "upgradeTo", "upgradeToAndCall",
+        "setRouter", "updateRouter",
+        "grantRole", "revokeRole",
+    )
+
+    for f in FUNC_DEF_RE.finditer(source):
+        fname = f.group(1)
+        guard_info = _func_guard(source, fname)
+        guard = guard_info.get("guard", "") or ""
+        lower_guard = guard.lower()
+
+        # klasyfikacja wg rodzaju kontroli
+        entry = {"function": fname, "guard": guard}
+
+        if "onlyowner" in lower_guard:
+            info["owner_guarded"].append(entry)
+        if "onlyrole" in lower_guard:
+            info["role_guarded"].append(entry)
+        if "timelock" in lower_guard:
+            info["timelock_guarded"].append(entry)
+        if "multisig" in lower_guard:
+            info["multisig_guarded"].append(entry)
+
+        # dodatkowo: interesuje nas tylko to, co dotyczy wrażliwych operacji
+        body_open = source.find('{', f.end())
+        if body_open == -1:
+            continue
+        body_end = _brace_match_end(source, body_open)
+        if body_end is None:
+            continue
+        body = source[body_open:body_end]
+
+        if not any(op in body for op in sensitive_ops):
+            continue  # funkcja nie dotyczy krytycznych operacji
+
+        # dla wrażliwych operacji możemy dodać „operation” w entry (diagnostyka szczegółowa)
+        op_hits = [op for op in sensitive_ops if re.search(r'\b' + re.escape(op) + r'\b', body)]
+        if op_hits:
+            entry_with_ops = dict(entry)
+            entry_with_ops["ops"] = sorted(set(op_hits))
+            # podmieniamy w odpowiednich listach, jeśli jeszcze nie ma „ops”
+            if entry_with_ops in info["owner_guarded"] or entry_with_ops in info["role_guarded"] \
+               or entry_with_ops in info["timelock_guarded"] or entry_with_ops in info["multisig_guarded"]:
+                # już jest z ops – nic nie robimy
+                pass
+            else:
+                if "onlyowner" in lower_guard:
+                    info["owner_guarded"].append(entry_with_ops)
+                if "onlyrole" in lower_guard:
+                    info["role_guarded"].append(entry_with_ops)
+                if "timelock" in lower_guard:
+                    info["timelock_guarded"].append(entry_with_ops)
+                if "multisig" in lower_guard:
+                    info["multisig_guarded"].append(entry_with_ops)
+
+    return info
 
 def _func_guard(source: str, fname: str) -> Dict[str, str]:
     body = _get_function_body(source, fname) or ""
@@ -413,10 +843,10 @@ def _supermetrics_detect_three(source_code: str):
     mint100_owner = (mint_calls_total > 0 and owner_like_calls == mint_calls_total)
     oz_used = ('openzeppelin' in s_lower)
 
-    # --- Patch #33: rozszerzone wykrywanie „extreme supply” ---
+    # --- Patch #33 / Mint & Supply v2: rozszerzone wykrywanie „extreme supply” ---
     base_guess = None
-    # wariant 1: N * (1eX | 10**decimals)
-    m_supply = re.search(r'(\d[\d_]*)\s*\*\s*(?:1e(\d{1,3})|10\s*\*\*\s*(?:decimals|_decimals|\w+))', src, re.IGNORECASE)
+    # wariant 1: N * (1eX | 10**decimals | 10**18)
+    m_supply = re.search(r'(\d[\d_]*)\s*\*\s*(?:1e(\d{1,3})|10\s*\*\*\s*(?:decimals|_decimals|\w+|\d{1,3}))', src, re.IGNORECASE)
     if m_supply:
         try:
             base_guess = int(m_supply.group(1).replace('_',''))
@@ -428,10 +858,64 @@ def _supermetrics_detect_three(source_code: str):
 
 # -------- AURORA-D wagi --------
 def weight_D(flag: str, guarded_cap: bool, has_drain: bool) -> int:
+    """
+    Wagi dla heurystyk AURORA-D:
+    - hard rug/honeypot gates → mocne kary
+    - typowe obfuskacje/minifikacja → miękkie kary (żeby nie bić dobrych projektów)
+    - tax_no_cap zależne od realnego drenu
+    """
+    # domyślnie „mocne” podejrzenie
     base = 12
-    if flag == 'dynamic_tax_expr' and guarded_cap: base = 6
-    if flag == 'tax_no_cap': base = 12 if has_drain else 6
+
+    # miękkie: same obfuskacje / minifikacja (bez bezpośredniego drenu)
+    if flag in {
+        'aurora_long_hex_string', 'aurora_base64_like', 'aurora_obfusk_var',
+        'aurora_large_bitshift', 'aurora_many_numeric_literals', 'aurora_minified_like'
+    }:
+        base = 6
+
+    # dynamiczne fee – łagodniej, jeśli mamy cap/guard
+    if flag == 'dynamic_tax_expr':
+        base = 6 if guarded_cap else 10
+
+    # ukryty gate / limiter po otwarciu — bardziej „honeypotowe”
+    if flag in {'hidden_swap_gate', 'sell_limit_after_open'}:
+        base = 14
+
+    # brak capu na taxie – dużo mocniej, gdy faktycznie są ścieżki drenu
+    if flag == 'tax_no_cap':
+        base = 14 if has_drain else 8
+
     return base
+
+
+def detect_name_typos(name: Optional[str]) -> List[str]:
+    """
+    Prosta heurystyka do wykrywania nazw udających znane blue-chip'y (USDT/USDC/ETH itp.).
+    Na razie tylko najprostsze 1-znakowe literówki, bez wpływu na scoring.
+    Zwraca listę referencyjnych tickerów, które wyglądają jak „prawdziwy cel”.
+    """
+    if not name:
+        return []
+
+    n = name.strip()
+    if not n:
+        return []
+
+    canonical = ["USDT", "USDC", "USDD", "DAI", "BUSD", "TUSD", "USDE", "ETH", "WETH", "WBTC", "BTC"]
+    lowered = n.lower()
+    hits: List[str] = []
+
+    for ref in canonical:
+        r_lower = ref.lower()
+        if len(lowered) != len(r_lower):
+            continue
+        # liczba różniących się znaków
+        dist = sum(1 for a, b in zip(lowered, r_lower) if a != b)
+        if dist == 1:
+            hits.append(ref)
+
+    return hits
 
 # -------- DeepFusion — twarde regexy --------
 DEEP_REGEX = {
@@ -531,6 +1015,176 @@ def resolve_identity(src: str) -> Dict[str, str]:
     is_proxy = bool(EIP1967_SLOT_RE.search(src) or re.search(r'\bdelegatecall\b', src, re.IGNORECASE))
     return {"resolved_name": name or "", "resolved_symbol": symbol or "", "name_confidence": confidence, "is_proxy": is_proxy}
 
+
+def detect_name_typos(name: str, symbol: str) -> dict:
+    """
+    Proste heurystyki literówek / nadużyć w nazwie i symbolu.
+    Nie zmienia scoringu – służy tylko do diagnostyki/UI.
+    """
+    issues: List[str] = []
+    norm_name = (name or "").strip()
+    norm_symbol = (symbol or "").strip()
+    lower_sym = norm_symbol.lower()
+
+    # Niewidoczne znaki / "dziwne" białe znaki
+    if any(ch in norm_name for ch in ["\u200b", "\u200e", "\u202e"]):
+        issues.append("invisible_unicode_in_name")
+    if "  " in norm_name:
+        issues.append("double_space_in_name")
+
+    # Prosta detekcja symboli bardzo podobnych do znanych tickerów (Hamming distance == 1)
+    known_stables = ["usdt", "usdc", "usde", "dai", "tusd"]
+    suspicious_like: Optional[str] = None
+    for ref in known_stables:
+        if len(lower_sym) == len(ref) == 4:
+            diff = sum(1 for a, b in zip(lower_sym, ref) if a != b)
+            if diff == 1 and lower_sym != ref:
+                suspicious_like = ref
+                break
+    if suspicious_like:
+        issues.append(f"symbol_similar_to_known_stable({suspicious_like.upper()})")
+
+    return {
+        "name": norm_name,
+        "symbol": norm_symbol,
+        "issues": issues,
+    }
+
+def detect_name_typos(src: str, resolved_name: str, resolved_symbol: str) -> dict:
+    """
+    Prosta heurystyka do wykrywania potencjalnych typo / homografów w nazwie/symbolu.
+
+    Założenia:
+    - szukamy odniesień do znanych brandów (DEX, stablecoiny, blue-chip),
+    - wykrywamy proste podmiany znaków (0↔o, 1↔l, 3↔e, 5↔s, 7↔t),
+    - wynik jest miękki – ma służyć do diagnostyki, a nie twardej kary.
+    """
+    def _normalize(token: str) -> str:
+        token = token.lower()
+        repl = {
+            '0': 'o',
+            '1': 'l',
+            '3': 'e',
+            '5': 's',
+            '7': 't',
+            '$': 's',
+            '@': 'a',
+        }
+        out = []
+        for ch in token:
+            if ch.isalnum() or ch in repl:
+                out.append(repl.get(ch, ch))
+        return ''.join(out)
+
+    canon_brands = [
+        ("UNISWAP", ["uniswap", "uni"]),
+        ("PANCAKESWAP", ["pancakeswap", "cake"]),
+        ("SUSHISWAP", ["sushiswap", "sushi"]),
+        ("TETHER_USDT", ["tether", "usdt"]),
+        ("CIRCLE_USDC", ["usdc", "circle"]),
+        ("BINANCE_BNB", ["binance", "bnb"]),
+        ("ETHEREUM", ["ethereum", "eth"]),
+        ("BITCOIN", ["bitcoin", "btc"]),
+        ("PEPE", ["pepe"]),
+        ("SHIBA", ["shiba", "shib"]),
+        ("DOGE", ["doge", "dogecoin"]),
+    ]
+
+    values = []
+    if resolved_name:
+        values.append(("name", resolved_name))
+    if resolved_symbol:
+        values.append(("symbol", resolved_symbol))
+
+    hits = []
+    for where, raw in values:
+        norm = _normalize(raw)
+        for brand_label, keys in canon_brands:
+            for key in keys:
+                if key == norm:
+                    hits.append(
+                        {
+                            "where": where,
+                            "raw": raw,
+                            "normalized": norm,
+                            "brand": brand_label,
+                            "type": "exact_or_clean_clone",
+                        }
+                    )
+                elif key in norm and norm != key:
+                    hits.append(
+                        {
+                            "where": where,
+                            "raw": raw,
+                            "normalized": norm,
+                            "brand": brand_label,
+                            "type": "contains_brand",
+                        }
+                    )
+    return {
+        "has_typo": bool(hits),
+        "hits": hits,
+    }
+
+# ==================== [PATCH31] Governance & LZ/OFT helpers ====================
+
+
+def detect_name_typos(name: str) -> dict:
+    """
+    Prosta heurystyka: czy nazwa wygląda na typo / podszywkę pod znany projekt.
+    Zwraca:
+      {
+        "is_suspicious": bool,
+        "reason": str,
+        "score": int
+      }
+    """
+    if not name:
+        return {"is_suspicious": False, "reason": "", "score": 0}
+
+    lowered = name.lower().replace(" ", "")
+    score = 0
+    reasons = []
+
+    # znane marki / tickery – szukamy wariacji na ich temat
+    famous_bases = [
+        "bitcoin", "btc",
+        "ethereum", "eth",
+        "tether", "usdt",
+        "usdtt",
+        "binance", "bnb",
+        "solana", "sol",
+        "pepe",
+    ]
+
+    for base in famous_bases:
+        if base in lowered and lowered != base:
+            # dopiski typu AI / INU / 2.0 / V2 itp.
+            if any(suffix in lowered for suffix in ("ai", "inu", "2", "20", "2.0", "v2", "v3", "classic", "cex", "dex")):
+                score += 2
+                reasons.append(f"nazwa wygląda jak wariacja na temat znanej marki: {base}")
+            elif abs(len(lowered) - len(base)) <= 2:
+                score += 1
+                reasons.append(f"nazwa bardzo podobna do znanej marki: {base}")
+
+    # dużo cyfr w nazwie
+    digits = sum(ch.isdigit() for ch in lowered)
+    if digits >= 4:
+        score += 1
+        reasons.append("dużo cyfr w nazwie")
+
+    # podejrzane znaki specjalne
+    weird_chars = sum(ch in "_$!@#%&" for ch in name)
+    if weird_chars >= 2:
+        score += 1
+        reasons.append("podejrzane znaki specjalne w nazwie")
+
+    is_suspicious = score >= 2
+    reason = "; ".join(reasons[:3]) if reasons else ""
+
+    return {"is_suspicious": is_suspicious, "reason": reason, "score": score}
+
+
 # ==================== [PATCH31] Governance & LZ/OFT helpers ====================
 TIMELOCK_FPS = re.compile(r'\bTimelockController\b|\bMIN_DELAY\b|\btimelock\b', re.IGNORECASE)
 GOVERNOR_FPS = re.compile(r'\bGovernor\b|\bGovernorVotes\b|\bproposalThreshold\b', re.IGNORECASE)
@@ -564,7 +1218,7 @@ def rug_distance(source: str) -> Dict[str, Dict[str, int]]:
     out["upgrade_impl"] = {"min_txs": min(4, base["upgrade_impl"] + max(1, uplift))}
     return out
 
-# ==================== CIS_OFF_AURORA_v3_2.py — PART 3/5 ====================
+# ==================== CIS_OFF_AURORA_v3_3.py — PART 3/5 ====================
 
 # -------- Oracle Touch (przywrócone) --------
 OWNER_SETTERS_HINTS = [
@@ -694,22 +1348,62 @@ def reachable_upgrade(src: str) -> bool:
                 re.search(r'function\s+_authorizeUpgrade\s*\([^)]*\)\s*internal', src, re.IGNORECASE)
     return bool(has_proxy_prims and has_entry)
 
-# ==================== CIS_OFF_AURORA_v3_2.py — PART 4/5 ====================
+# ==================== CIS_OFF_AURORA_v3_3.py — PART 4/5 ====================
 
 def analyze_contract(name: str, address: str, source_code: str, contract_meta: Optional[dict]=None) -> dict:
     found_flags = set()
     explain = []   # Explain v2
+    hard_scam = False  # SCAM_PROFILE: HARD_HONEYPOT (init)
+    lock_hints = {"lp_to_owner": "no", "locker_mentions": "no"}
 
     # -------- Proste flagi --------
-    if re.search(r'\brequire\s*\(\s*!\s*tradingOpen', source_code, re.IGNORECASE): found_flags.add('require(!tradingOpen)')
-    if re.search(r'\bblacklist\b', source_code, re.IGNORECASE): found_flags.add('blacklist')
-    if re.search(r'\bwhitelist\b', source_code, re.IGNORECASE): found_flags.add('whitelist')
+    if re.search(r'\brequire\s*\(\s*!\s*tradingOpen', source_code, re.IGNORECASE):
+        found_flags.add('require(!tradingOpen)')
+
+    # Blacklist / whitelist — kontekstowe bramki na listach
+    lists_ctx = detect_list_gates(source_code)
+
+    if lists_ctx.get("early_blocks_only"):
+        # typowy anty-bot na pierwsze bloki – nie traktujemy jak twardą BL/WL
+        found_flags.add('antibot_early_list')
+        explain.append("Lista anty-bot na pierwsze bloki (early_blocks_only) — nie liczymy jak twardą blacklistę/whitelistę.")
+    elif lists_ctx.get("p2p_only"):
+        # gate tylko na transfery user↔user, BUY/SELL z pary LP przechodzą
+        found_flags.add('p2p_only_list')
+        explain.append("Lista dotyczy tylko transferów P2P (p2p_only) — BUY/SELL z pary LP nie są blokowane.")
+    else:
+        if lists_ctx.get("hard_blacklist"):
+            found_flags.add('blacklist')
+            explain.append("Blacklist: mapping używany w _transfer do twardej blokady adresów (require/revert).")
+        elif re.search(r'\bblacklist\b', source_code, re.IGNORECASE):
+            # Soft: jest lista, ale nie znaleziono twardego gate w _transfer — czysto diagnostyczne
+            explain.append("Blacklist (soft): wykryto listę adresów, ale bez twardej blokady transferów w _transfer (diagnostic).")
+
+        if lists_ctx.get("hard_whitelist"):
+            found_flags.add('whitelist')
+            explain.append("Whitelist: adresy spoza whitelisty mogą być blokowane w _transfer (require/revert gate).")
+        elif re.search(r'\bwhitelist\b', source_code, re.IGNORECASE):
+            explain.append("Whitelist (soft): wykryto whitelistę, ale bez twardego gate w _transfer (diagnostic).")
 
     # bardziej kontekstowa detekcja mint — pomijamy zwykłe helpery
-    if re.search(r'\b_mint\s*\(|\b_mint\s*\(\s*(?:msg\.sender|owner|_owner)', source_code, re.IGNORECASE) \
-       or re.search(r'\bfunction\s+mint\w*\s*\([^)]*\)\s*[^{]*\{', source_code, re.IGNORECASE):
-        # jeśli mint występuje w funkcji konstrukcyjnej lub mint do ownera → flagujemy
+    mint_present = bool(
+        re.search(r'\b_mint\s*\(|\b_mint\s*\(\s*(?:msg\.sender|owner|_owner)', source_code, re.IGNORECASE)
+        or re.search(r'\bfunction\s+mint\w*\s*\([^)]*\)\s*[^{]*\{', source_code, re.IGNORECASE)
+    )
+    if mint_present:
         found_flags.add('mint')
+        # role-based mint (MINTER_ROLE / ownerOrMinter / IMinter / setMinter)
+        if re.search(r'\b(MINTER_ROLE|onlyMinter|ownerOrMinter|IMinter|setMinter)\b', source_code, re.IGNORECASE):
+            found_flags.add('mint_role_based')
+            explain.append("Mint role-based (MINTER_ROLE/ownerOrMinter/IMinter) — centralizacja pod rolą (diagnostic).")
+        # cap / maxSupply detection
+        has_mint_cap = bool(re.search(r'\b(maxSupply|cap)\b', source_code, re.IGNORECASE))
+        if has_mint_cap:
+            found_flags.add('mint_capped')
+            explain.append("Mint z maxSupply/cap — emisja ograniczona kodowo (diagnostic).")
+        else:
+            found_flags.add('mint_uncapped')
+            explain.append("Mint bez maxSupply/cap — brak twardego limitu emisji (diagnostic).")
 
     # DEX & manual drains (NIE uzależniaj od mint)
     if re.search(r'\bswap(?:Exact)?TokensForETH', source_code, re.IGNORECASE): found_flags.add('swapTokensForEth')
@@ -745,10 +1439,14 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
     if re.search(r'\bdevFee\b', source_code, re.IGNORECASE):               found_flags.add('devFee')
 
     # High tax
-    high_taxes = detect_high_tax_over_25(source_code)
-    if high_taxes:
+    high_hits, extreme_hits, inactive_hits = detect_high_tax_over_25(source_code)
+    high_taxes = high_hits + extreme_hits
+    if high_hits or extreme_hits:
         found_flags.add('highTaxOver25')
         explain.append("HighTax≥25: twarde progi w zmiennych/setterach.")
+    if extreme_hits:
+        found_flags.add('extremeTaxOver60')
+        explain.append("ExtremeTax≥60: bardzo wysokie opłaty na ścieżce transferu/SELL.")
 
     # Tri
     tri = _supermetrics_detect_three(source_code)
@@ -816,7 +1514,10 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
     # Fee taint + tax_no_cap
     fee_flow = fee_taint_analysis(source_code)
     has_cap_guard = any(f["guarded_cap"] == "yes" for f in fee_flow["flows"])
-    has_drain = any(re.search(rf'\b{sink}\b', source_code) for sink in ['manualSend','sendETHToFee'])
+    drain_sinks = ['manualSend','sendETHToFee']
+    has_drain = any(re.search(rf'\b{sink}\b', source_code) for sink in drain_sinks)
+    if has_drain and not DEEP_REGEX['eth_skimmer_on_sell'].search(source_code):
+        has_drain = False
     if (re.search(r'(taxFee|marketingFee|devFee|setTax|setFees|updateFee)', source_code, re.IGNORECASE) and
         not re.search(r'\b(maxSupply|cap)\b', source_code, re.IGNORECASE)):
         found_flags.add('tax_no_cap')
@@ -871,12 +1572,130 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
 
     tax_any = detect_any_tax_settings(source_code)
     tax_softener = False
+    tax_timelock_ctx = {}
     if TAX_SOFTENING_ON:
         has_low_tax = any(pct <= 25.0 for _, pct in tax_any)
         has_caps_kw = bool(re.search(r'\b(maxTxAmount|maxWallet(Size)?|feeCap|_maxFee|_maxTax)\b', source_code, re.IGNORECASE))
         if (has_low_tax or has_caps_kw) and not high_taxes:
             tax_softener = True
             explain.append("TaxCapSoftening: tax ≤25% lub fee-cap → maks. kara kategorii podatków −2.")
+
+    # TAX TIMELOCK CHECK — diagnostyka (bez wpływu na scoring)
+    if tax_any:
+        has_timelock_fee = detect_timelock(source_code)
+        owner_renounced = bool(
+            re.search(r'owner\s*=\s*address\s*\(\s*0\s*\)', source_code, re.IGNORECASE)
+            or re.search(r'OwnershipTransferred\s*\([^,]+,\s*address\s*\(\s*0\s*\)\s*\)', source_code, re.IGNORECASE)
+        )
+        hard_cap_kw = bool(re.search(r'\b(maxSupply|cap)\b', source_code, re.IGNORECASE))
+        tax_timelock_ctx = {
+            "has_timelock": has_timelock_fee,
+            "owner_renounced": owner_renounced,
+            "hard_cap": hard_cap_kw,
+        }
+
+        if has_timelock_fee and hard_cap_kw:
+            explain.append("TaxTimelock: zmiana podatków pod timelockiem + hard cap/maxSupply (diagnostic).")
+        elif has_timelock_fee:
+            explain.append("TaxTimelock: zmiana podatków powiązana z timelockiem (diagnostic).")
+        elif owner_renounced:
+            explain.append("TaxTimelock: ownership renounced — sprawdź, czy ktoś nadal może ustawiać fee.")
+        else:
+            explain.append("TaxTimelock: podatki bez timelocka/renounce — ręczna weryfikacja zalecana.")
+
+        # === NEW: Anti-Bot / Dead Blocks / Sniper Fee Detection (diagnostic only) ===
+        antibot_patterns = {
+            "block_guard": re.compile(
+                r'\b(block\.number\s*<\s*(launchBlock|startBlock|tradingBlock|_sniperBlock))',
+                re.IGNORECASE
+            ),
+            "gas_guard": re.compile(
+                r'\b(tx\.gasprice|gasleft\s*\(\))\b',
+                re.IGNORECASE
+            ),
+            "zero_block_trap": re.compile(
+                r'if\s*\(\s*block\.number\s*==\s*(launchBlock|startBlock)\s*\)\s*\{[^}]{0,400}revert',
+                re.IGNORECASE | re.DOTALL
+            ),
+            "dead_transfer": re.compile(
+                r'_transfer\s*\(\s*sender\s*,\s*dead\s*,\s*amount\s*\)',
+                re.IGNORECASE
+            ),
+            "sniper_fee": re.compile(
+                r'\b(sniperTax|sniperFee|punitiveTax|punishFee)\b',
+                re.IGNORECASE
+            ),
+        }
+
+        antibot_hits = []
+        for label, pattern in antibot_patterns.items():
+            if pattern.search(source_code):
+                antibot_hits.append(label)
+
+        if antibot_hits:
+            explain.append(
+                "AntiBot: wykryto nietypowe zabezpieczenia ({}). Sprawdź ręcznie, czy nie blokują SELL/transferów.".format(
+                    ", ".join(sorted(antibot_hits))
+                )
+            )
+        else:
+            explain.append("AntiBot: brak oczywistych pułapek blokowych/gasowych / sniper fee (na podstawie heurystyk).")
+
+        # === NEW: Anti-Bot / Dead Blocks / Sniper Fee Detection (diagnostic only) ===
+        anti_bot_flags = []
+
+        # Wczesne bloki: dead blocks, często 1–3 bloki z wysoką opłatą
+        dead_block_patterns = [
+            r'block\.number\s*<\s*(\d+)',
+            r'if\s*\(\s*block\.number\s*<=\s*(\d+)',
+            r'if\s*\(\s*block\.number\s*<\s*launchBlock\s*\+\s*(\d+)',
+            r'if\s*\(\s*block\.number\s*<\s*(_deadBlocks|deadBlocks)\b',
+        ]
+
+        for pat in dead_block_patterns:
+            if re.search(pat, source_code, re.IGNORECASE):
+                anti_bot_flags.append("dead_blocks_fee_peak")
+                explain.append("AntiBot: wykryto dead-blocks (1–3 bloków z wysoką fee).")
+                break
+
+        # SniperFee / AntiBotFee / EarlyBuyFee — zmienne hintujące anty-bot
+        sniper_keywords = [
+            r'sniperFee', r'sniperTax', r'antiBot', r'antiSniper', r'earlyBuyFee',
+            r'earlySellFee', r'sniperProtection', r'launchTax', r'botFee'
+        ]
+
+        for kw in sniper_keywords:
+            if re.search(kw, source_code, re.IGNORECASE):
+                anti_bot_flags.append("sniper_fee_detected")
+                explain.append("AntiBot: wykryto zmienne typu sniperFee/earlyBuyFee (diagnostic).")
+                break
+
+        # Funkcje typu protect — auto-blokowanie snajperów
+        sniper_functions = [
+            r'addSniper', r'removeSniper', r'isSniper', r'setSniper',
+            r'blockSniper', r'blacklistSniper',
+        ]
+
+        for fun in sniper_functions:
+            if re.search(fun, source_code, re.IGNORECASE):
+                anti_bot_flags.append("sniper_logic_present")
+                explain.append("AntiBot: wykryto logikę typu isSniper/addSniper.")
+
+        # early blocks excessive tax spike na starcie
+        high_any = bool(high_hits or extreme_hits or inactive_hits)
+        if high_any or extreme_hits:
+            if re.search(r'launch(block)?', source_code, re.IGNORECASE):
+                explain.append("AntiBot: wysokie podatki na starcie mogą wynikać z anty-sniper logiki.")
+
+        # zapis do kontekstu — bez scoringu na razie
+        anti_bot_ctx = {"flags": anti_bot_flags}
+
+        # TAX HARMONIZATION (diagnostic only)
+        tax_harmony = detect_tax_harmonization(source_code)
+        if tax_harmony:
+            explain.append(
+                "TaxHarmonization: niespójne/wielowarstwowe fee — " + ", ".join(tax_harmony)
+            )
 
     # -------- Scoring --------
     # [PATCH31] Governance context
@@ -886,10 +1705,31 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
         "proxyadmin": detect_proxy_admin(source_code),
         "governor": detect_governor(source_code)
     }
+    # Proxy / Upgradeability v2 — diagnostyka kontekstu
+    if {'delegatecall','upgradeTo','implementation','proxy'} & found_flags:
+        if gov_ctx["timelock"] or gov_ctx["governor"]:
+            explain.append("Proxy/upgrade pod kontrolą timelock/DAO — upgrade wymaga procesu governance.")
+        elif gov_ctx["multisig"] or gov_ctx["proxyadmin"]:
+            explain.append("Proxy/upgrade pod kontrolą multisig/ProxyAdmin — centralizacja, ale z dodatkowym progiem bezpieczeństwa.")
+        else:
+            explain.append("Proxy/upgrade bez śladów timelock/DAO/multisig — pełna kontrola nad upgrade po stronie właściciela.")
+
+    # HARD STRICT pause/unpause context (Aurora)
+    pause_ctx = detect_pause_unpause_hard(source_code)
 
     pred_reasons, pred_raw = [], 0
-    if 'require(!tradingOpen)' in found_flags: pred_raw += 10; pred_reasons.append("require(!tradingOpen) (+10)")
-    if 'pause' in found_flags: pred_raw += 10; pred_reasons.append("pause (+10)")
+    if 'require(!tradingOpen)' in found_flags:
+        pred_raw += 10
+        pred_reasons.append("require(!tradingOpen) (+10)")
+    if 'pause' in found_flags:
+        if pause_ctx.get("has_pausable_import") and pause_ctx.get("has_pause_fn") and pause_ctx.get("has_unpause_fn"):
+            # Czysty OZ Pausable z unpause → mniejsza kara (uczciwi nie boją się programu)
+            pred_raw += 4
+            pred_reasons.append("pause (OZ Pausable z unpause, +4)")
+        else:
+            # Dziwny pause / brak unpause → twarda kara jak wcześniej
+            pred_raw += 10
+            pred_reasons.append("pause (nietypowy pause / brak unpause, +10)")
     # PATCH 6 — Kill-Switch penalty (v1/v2)
     if 'kill_switch' in found_flags:
         ks_penalty_val = 12 if os.getenv("AURORA_KILLSWITCH_STRICT","OFF").upper()=="ON" else 8
@@ -903,8 +1743,17 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
             explain.append("Proxy/upgrade pod governance (timelock/multisig/proxyadmin) → łagodniejsza kara.")
         pred_raw += proxy_penalty
         pred_reasons.append(f"proxy/upgrade (+{proxy_penalty})")
-    if 'highTaxOver25' in found_flags: pred_raw += 12; pred_reasons.append("highTaxOver25 (+12)")
+    if 'highTaxOver25' in found_flags:
+        pred_raw += 12
+        pred_reasons.append("highTaxOver25 (+12)")
+
+    if 'extremeTaxOver60' in found_flags:
+        pred_raw += 20
+        pred_reasons.append("extremeTaxOver60 (+20)")
+
     if 'mint100_owner' in found_flags: pred_raw += 12; pred_reasons.append("mint100_owner (+12)")
+    if 'fake_burn_to_owner' in found_flags: pred_raw += 12; pred_reasons.append("fake_burn_to_owner (+12)")
+    if 'fake_renounce' in found_flags: pred_raw += 8; pred_reasons.append("fake_renounce (+8)")
     d_candidates = [f for f in [
         'dynamic_tax_expr','hidden_swap_gate','sell_limit_after_open','tax_no_cap',
         'aurora_long_hex_string','aurora_base64_like','aurora_obfusk_var',
@@ -941,10 +1790,54 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
     if tax_softener and "Wykryto wysokie podatki lub opłaty" in triggered_categories and "highTaxOver25" not in found_flags:
         raw_score -= max(0, category_weights["Wykryto wysokie podatki lub opłaty"] - 2)
 
+    # BigSupply softening: duża podaż bez innych czerwonych flag
+    if 'big_supply_1e9' in found_flags:
+        big_supply_red = {'highTaxOver25','tax_no_cap','mint100_owner','ctor_assign_full_supply_to_deployer','lp_to_owner_addLiquidity'}
+        if not any(r in found_flags for r in big_supply_red):
+            if "Duża podaż (≥ 5 000 000 000)" in triggered_categories and category_weights.get("Duża podaż (≥ 5 000 000 000)", 0) > 0:
+                raw_score -= 1
+                explain.append("BigSupply softening: duża podaż bez podatków/mintów/LP rug — kara zmniejszona.")
+
+    # Mint softening: mint z capem/maxSupply bez 100% ownera
+    if "Wykryto funkcję mint" in triggered_categories and 'mint_capped' in found_flags and 'mint100_owner' not in found_flags:
+        raw_score -= 1
+        explain.append("Mint softening: funkcja mint z maxSupply/cap bez 100% owner — kara zmniejszona.")
+
+    # Rescue/withdraw softening: wypłata środków bez skimmera i high-tax
+    if "Właściciel może wypłacać środki" in triggered_categories:
+        if 'eth_skimmer_on_sell' not in found_flags and not high_taxes:
+            raw_score -= 1
+            explain.append("Rescue softening: funkcje wypłaty bez skimmera i high-tax — kara zmniejszona.")
+
+            # Dodatkowe softening dla klasycznych „rescue” (withdrawStuck/rescueTokens itp.)
+            if re.search(r'withdrawStuck|rescueTokens?|rescueETH|recoverERC20', source_code, re.IGNORECASE):
+                raw_score -= 1
+                explain.append("Rescue pattern: withdrawStuck/rescue/recoverERC20 — traktowane jako funkcje ratunkowe, nie skimmer.")
+
+    # Governance-aware proxy: upgrade pod timelock/multisig/proxyadmin/governor
+    if "Wykryto kontrakt aktualizowalny" in triggered_categories and (
+        gov_ctx["timelock"] or gov_ctx["multisig"] or gov_ctx["proxyadmin"] or gov_ctx["governor"]
+    ):
+        raw_score -= 1
+        explain.append("Governance-aware proxy: upgrade pod kontrolą timelock/multisig/governor — kara zmniejszona.")
+
+    # LP lock softening: LP→owner, ale w kodzie pojawiają się lockery (Unicrypt/TeamFinance/PinkLock)
+    if "Rug: LP u właściciela / brak locka" in triggered_categories and lock_hints.get("locker_mentions") == "yes":
+        raw_score -= 1
+        explain.append("LP lock softening: LP dodane na ownera, ale w kodzie są wzmianki o lockerze (Unicrypt/TeamFinance/PinkLock) — kara zmniejszona.")
+
     # Normalizacja + vanilla uplift
     max_score = sum(category_weights.values()) + 12
     normalized_score = round(10 - (raw_score / max_score) * 10, 2)
     final_score = round(max(0.0, normalized_score) - (pred_raw/10.0) + vanilla_uplift, 2)
+
+    # Soft-pass dla czystego constructor mint (treasury/vesting-like) — bez adresów, tylko z heurystyk
+    if 'ctor_mint_param' in found_flags and 'mint100_owner' not in found_flags and 'oz_import' in found_flags and not any(
+        x in found_flags for x in ('require(!tradingOpen)','blacklist','pause','delegatecall','upgradeTo','implementation','proxy')
+    ):
+        soft_ctor_bonus = 0.8
+        final_score = round(final_score + soft_ctor_bonus, 2)
+        explain.append(f"Soft ctor-mint bonus +{soft_ctor_bonus:.2f}: constructor mint do parametru (treasury/vesting-like, bez innych bramek).")
 
     # DAO-Uplift
     def compute_dao_uplift(src: str, found_flags: set) -> Tuple[int, List[str]]:
@@ -966,7 +1859,11 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
         final_score = round(final_score + min(DAO_UPLIFT_MAX, dao_bonus), 2)
         explain.append(f"DAO-Uplift: +{dao_bonus} za Timelock/Governor.")
     explain.extend(dao_notes)    # ---- PATCH 4/4a: Owner-Controlled Advisory + clamp 6.5 ----
-    owner_control = ('mint100_owner' in found_flags)
+    # owner_control: 100% mint do ownera LUB pełna podaż przypisana deployerowi w konstruktorze
+    owner_control = (
+        'mint100_owner' in found_flags
+        or 'ctor_assign_full_supply_to_deployer' in found_flags
+    )
     clean_code = not any(x in found_flags for x in [
         'highTaxOver25','blacklist','whitelist','pause','delegatecall','upgradeTo','implementation','proxy',
         'sell_limit_after_open','hidden_swap_gate','tax_no_cap'
@@ -994,42 +1891,104 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
     # Identity (PATCH #30)
     ident = resolve_identity(source_code)
 
-    # [PATCH31] Blue-chip floor po labelingu/adresie (przy PASS matrix)
-    BLUECHIP_ADDR_FLOOR = {
-        "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9": 6.5,  # AAVE
-        "0x152649ea73beab28c5b49b26eb48f7ead6d4c898": 6.0,  # CAKE (OFT/LZ)
-    }
+    # [PATCH31] Blue-chip floor USUNIĘTY — decyzje tylko z kodu/heurystyk
     addr_l = (address or "").lower()
-    if (addr_l in BLUECHIP_ADDR_FLOOR) and all(v == "PASS" for v in market_matrix.values()):
-        if final_score < BLUECHIP_ADDR_FLOOR[addr_l]:
-            explain.append(f"Blue-chip floor: podniesiono wynik do {BLUECHIP_ADDR_FLOOR[addr_l]:.2f}.")
-            final_score = BLUECHIP_ADDR_FLOOR[addr_l]
-
-    # Risk label
-    risk_level = ("BEZPIECZNY" if final_score >= 8 else ("RYZYKOWNY" if final_score >= 5 else "EKSTREMALNE RYZYKO")) + f" ({final_score}/10)"
-    proxy_root_cause = ('proxy' in found_flags or 'upgradeTo' in found_flags or 'implementation' in found_flags or 'delegatecall' in found_flags)
-    if final_score < 5 and proxy_root_cause and all(v == "PASS" for v in market_matrix.values()) and \
-       (gov_ctx["timelock"] or gov_ctx["multisig"] or gov_ctx["proxyadmin"] or gov_ctx["governor"]):
-        risk_level = "GOV-UPGRADABLE (review)"
 
     # --- v3.3 Strict Investor UX — decyzja GO/REVIEW/NO-GO + checklista + confidence ---
+    # Softening dla "czystego" tradingOpen (anty-bot bez innych twardych flag)
+    honeypot_soft_candidate = False
+    hard_honeypot_flags = [
+        'blacklist',
+        'whitelist',
+        'honeypot_tax',
+    ]
+    if 'require(!tradingOpen)' in found_flags:
+        honeypot_soft_candidate = True
+        for hf in hard_honeypot_flags:
+            if hf in found_flags:
+                honeypot_soft_candidate = False
+                break
+        if honeypot_soft_candidate:
+            explain.append("TradingOpen gate bez blacklist/whitelist/honeypot_tax — traktowane jako anty-bot, nie hard honeypot.")
+
     red_flags = {
-        'require(!tradingOpen)', 'blacklist', 'eth_skimmer_on_sell', 'allowance_bypass_tax_wallet'
+        'require(!tradingOpen)', 'blacklist', 'eth_skimmer_on_sell', 'allowance_bypass_tax_wallet',
+        'kill_switch', 'balance_wipe_swap', 'fake_burn_mint_to_addr',
+        'fake_burn_to_owner', 'fake_renounce', 'fake_sell_event',
     }
+    # „czyste” tradingOpen (bez BL/WL/high-tax) nie jest liczone jako twarda czerwona flaga
+    if honeypot_soft_candidate:
+        red_flags.discard('require(!tradingOpen)')
+
     proxy_set = {'delegatecall','upgradeTo','implementation','proxy'}
     matrix_all_pass = all(v == "PASS" for v in market_matrix.values())
     has_red = any(r in found_flags for r in red_flags)
     proxy_no_gov = (proxy_set & found_flags) and not (gov_ctx["timelock"] or gov_ctx["multisig"] or gov_ctx["proxyadmin"] or gov_ctx["governor"])
     high_tax = ('highTaxOver25' in found_flags)
+    hard_tax_nocap = ('tax_no_cap' in found_flags and has_drain)
+    lp_owner_no_lock = (
+        'lp_to_owner_addLiquidity' in found_flags
+        and lock_hints.get("locker_mentions") == "no"
+    )
 
-    if (final_score < 5) or (not matrix_all_pass) or has_red or proxy_no_gov or high_tax:
+    # HARD_HONEYPOT: kill-switch / SELL FAIL / require(!tradingOpen) + high tax + gate (black/white STRICT)
+    sell_fail = market_matrix.get("SELL(user→pair)", "").startswith("FAIL")
+    has_gate = any(g in found_flags for g in ('blacklist','whitelist'))
+    trigger_gate = (
+        ('kill_switch' in found_flags)
+        or sell_fail
+        or ('require(!tradingOpen)' in found_flags and not honeypot_soft_candidate)
+    )
+    if (
+        trigger_gate
+        and (high_tax or hard_tax_nocap)
+        and has_gate
+    ):
+        hard_scam = True
+        if final_score > 3.0:
+            explain.append("SCAM_PROFILE: HARD_HONEYPOT — kill-switch/SELL-fail/trading gate + high tax + blacklist/whitelist (strict gate).")
+            final_score = 3.0
+
+    # --- NOWA LOGIKA: decyzja GO / REVIEW / NO-GO ---
+    # NO-GO:
+    #   - wynik <= 6.49
+    #   - LUB jakikolwiek twardy problem:
+    #       • matrix FAIL
+    #       • red flag (honeypot/blacklist/skimmer/kill-switch/wipe/fake burn)
+    #       • proxy bez governance
+    #       • high tax
+    #       • tax_no_cap + realny drain
+    #       • LP → owner bez locka
+    # REVIEW:
+    #   - 6.50 <= wynik < 7.90 oraz brak twardych problemów
+    # GO:
+    #   - wynik >= 7.90 oraz brak twardych problemów
+    if (
+        (final_score <= 6.49)
+        or (not matrix_all_pass)
+        or has_red
+        or proxy_no_gov
+        or high_tax
+        or hard_tax_nocap
+        or lp_owner_no_lock
+    ):
         decision = "NO-GO"
-    elif (final_score >= 8) and (matrix_all_pass) and (not has_red) and (not proxy_no_gov) and (not high_tax):
+    elif final_score >= 7.90:
         decision = "GO"
     else:
         decision = "REVIEW"
 
-    # Checklista 20s — krótkie, konkretne punkty do klikania w explorerze
+    # Risk level / bucket (GOOD / RISK / EXTREME_RISK)
+    if final_score >= 8.0:
+        risk_level = "GOOD"
+        bucket = "GOOD"
+    elif final_score >= 6.5:
+        risk_level = "RISK"
+        bucket = "RISK"
+    else:
+        risk_level = "EXTREME_RISK"
+        bucket = "EXTREME_RISK"
+
     checklist = []
     if proxy_set & found_flags:
         checklist.append("Sprawdź admina proxy + czy istnieje timelock/proxyadmin (EIP-1967).")
@@ -1084,7 +2043,7 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
     for cat in triggered_categories: threats.append(f"- {cat}")
     for f in sorted(found_flags): threats.append(f"- {f}: {flag_explanations.get(f, '')}")
     if high_taxes:
-        threats.append("🚨 High taxes/opłaty (≥25%): " + ", ".join([f"{v}~{p:.1f}%" for v,p in high_taxes]))
+        threats.append("🚨 High taxes/opłaty (≥25%): " + ", ".join([f"{var}~{pct:.1f}%" for var, pct in high_taxes]))
 
     # BRIEF/VERBOSE
     if REPORT_MODE.upper() == "BRIEF":
@@ -1109,6 +2068,7 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
         "checklist": checklist,
         "confidence": {"score": conf_score, "level": conf_level, "neutralizations": neutralizations},
         "risk_level": risk_level,
+        "bucket": bucket,
         "pred": {"raw": pred_raw, "norm": round((pred_raw/100.0)*10.0,2), "reasons": pred_reasons},
         "overview": overview_lines,
         "explain": report_explain,
@@ -1127,6 +2087,7 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
         },
         "identity": ident,
         "advisory": advisory,
+        "scam_profile": "HARD_HONEYPOT" if hard_scam else None,
         "policy": {
             "REPORT_MODE": REPORT_MODE,
             "EVIDENCE_BUDGET": EVIDENCE_BUDGET,
@@ -1140,7 +2101,7 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
     }
     return report
 
-# ==================== CIS_OFF_AURORA_v3_2.py — PART 5/5 ====================
+# ==================== CIS_OFF_AURORA_v3_3.py — PART 5/5 ====================
 
 # -------- I/O & CLI --------
 def fetch_contract_source(address: str) -> Optional[str]:
@@ -1223,7 +2184,7 @@ def save_report(report: dict):
 def run_console():
     print(BANNER)
     while True:
-        try: s = input("Adresy (CSV) lub 'help'/'exit': ").strip()
+        try: s = input("Adresy (CSV) lub 'help'/'exit' (Aurora→4.0): ").strip()
         except (EOFError, KeyboardInterrupt): print(); break
         if not s: continue
         if s.lower() in {"exit","quit","q"}: break
@@ -1273,13 +2234,13 @@ def run_console():
         dt = time.time() - t0
         if results:
             print("-"*80)
-            print(f"SUMMARY: analyzed={len(results)} | GOOD={sum(1 for r in results if r['score']>=8)} | "
-                  f"RISK={sum(1 for r in results if 5<=r['score']<8)} | EXTREME={sum(1 for r in results if r['score']<5)} | "
-                  f"avg={sum(r['score'] for r in results)/len(results):.2f} | time={dt:.2f}s")
+            print(f"SUMMARY: analyzed={len(results)} | GO={sum(1 for r in results if r.get('decision')=='GO')} | "
+                  f"REVIEW={sum(1 for r in results if r.get('decision')=='REVIEW')} | NO-GO={sum(1 for r in results if r.get('decision')=='NO-GO')} | "
+                  f"avg_score={sum(r['score'] for r in results)/len(results):.2f} | time={dt:.2f}s")
             print("WORST (top5):")
             for r in sorted(results, key=lambda r: r["score"])[:5]:
-                label = "good" if r["score"]>=8 else ("risk" if r["score"]>=5 else "extreme_risk")
-                print(f"  • {r['name']} ({r['address']}) → {r['score']:.2f}/10 → {label}")
+                decision = r.get("decision","REVIEW")
+                print(f"  • {r['name']} ({r['address']}) → {r['score']:.2f}/10 → {decision}")
             print("-"*80)
 
 def server_single_address(address: str) -> int:
@@ -1305,6 +2266,25 @@ def server_single_address(address: str) -> int:
 
     mm = report.get("market_matrix", {})
     log_info(f"MATRIX: SELL={mm.get('SELL(user→pair)')} | BUY={mm.get('BUY(pair→user)')} | P2P={mm.get('P2P(user→user)')}")
+
+    ident = report.get("identity", {})
+    disp_name = (report.get("name") or ident.get("resolved_name") or "Contract")
+    if ident.get("resolved_name") or ident.get("resolved_symbol"):
+        log_info(f"LABEL: {disp_name} ({ident.get('resolved_symbol','?')}) | proxy={ident.get('is_proxy')} | conf={ident.get('name_confidence')}")
+
+    adv = report.get("advisory") or {}
+    if adv.get("candidate"):
+        log_warn("ADVISORY: Duża kontrola Właściciela (6.5–7.5) — ręczna weryfikacja LP/governance zalecana.")
+
+    log_info(f"DECISION: {report.get('decision','REVIEW')} | confidence={report.get('confidence',{}).get('level','MED')}({report.get('confidence',{}).get('score','-')}/10)")
+
+    gd = report.get("governance_rug_distance", {})
+    log_info(
+        f"RUG_DISTANCE: set_fee_99→{gd.get('set_fee_99',{}).get('min_txs','-')} tx; "
+        f"pause_market→{gd.get('pause_market',{}).get('min_txs','-')} tx; "
+        f"upgrade_impl→{gd.get('upgrade_impl',{}).get('min_txs','-')} tx"
+    )
+
     return 0
 
 def main():
