@@ -232,7 +232,7 @@ def analyze():
                 403,
             )
 
-    address = (request.form.get("address") or "").strip()
+    address = (request.form.get("address") or request.form.get("contract_address") or "").strip()
     if not ADDRESS_RE.match(address):
         return (
             jsonify(
