@@ -353,10 +353,17 @@
           body: new URLSearchParams({ address: addr })
         });
 
+        // Pobierz JSON raz – wspólny dla DEBUG_TAIL i obsługi NO_SOURCE
+        let data = null;
+        try {
+          data = await resp.json();
+        } catch(_) {
+          data = null;
+        }
+
         // Konsola pod wynikiem — całkowicie wyłączona gdy DEBUG_TAIL=false
-        if (DEBUG_TAIL) {
+        if (DEBUG_TAIL && data) {
           try{
-            const data = await resp.json();
             if(resBox){
               let txt = data.error
                 ? ("❌ " + (data.message || data.error))
@@ -366,6 +373,25 @@
               resBox.style.display = "block";
             }
           }catch(_){}
+        }
+
+        // 🔍🚫 Kod źródłowy niedostępny — obsługa NO_SOURCE z backendu
+        if (data && data.status === "no_source") {
+          htmlBox.innerHTML = `
+            <div style="
+              padding:20px;
+              border-radius:12px;
+              background:#1a0f14;
+              border:1px solid #3a2028;
+              color:#e8c5cc;
+              font-size:15px;
+              line-height:1.5;
+            ">
+              <div style="font-size:20px;margin-bottom:6px;">🔍🚫 Kod źródłowy niedostępny</div>
+              <div>Nie udało się pobrać kodu źródłowego kontraktu z Etherscan.<br>
+              Audyt nie może zostać wykonany bez publicznego źródła.</div>
+            </div>`;
+          return;
         }
 
         // Zawsze ładujemy tylko finalny raport HTML
