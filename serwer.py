@@ -342,7 +342,7 @@ def analyze():
                     "summary": summary,
                 }
             ),
-            (200 if status == 0 else 500),
+            (200 if status == "ok" else 500),
         )
 
     except subprocess.TimeoutExpired:
