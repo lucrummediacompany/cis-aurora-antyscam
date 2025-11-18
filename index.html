@@ -375,6 +375,29 @@
           }catch(_){}
         }
 
+        // Błąd analizy (np. nieprawidłowy adres) — nie pokazujemy starego raportu
+        if (!resp.ok || (data && data.error && data.status !== "no_source")) {
+          const msg =
+            (data && (data.message || data.error))
+              ? data.message || data.error
+              : "Wystąpił błąd techniczny podczas analizy kontraktu. Spróbuj ponownie za chwilę.";
+
+          htmlBox.innerHTML = `
+            <div style="
+              padding:20px;
+              border-radius:12px;
+              background:#1a0f14;
+              border:1px solid #7f1d1d;
+              color:#fecaca;
+              font-size:15px;
+              line-height:1.5;
+            ">
+              <div style="font-size:20px;margin-bottom:6px;">❌ Błąd analizy</div>
+              <div>${msg}</div>
+            </div>`;
+          return;
+        }
+
         // 🔍🚫 Kod źródłowy niedostępny — obsługa NO_SOURCE z backendu
         if (data && data.status === "no_source") {
           htmlBox.innerHTML = `
