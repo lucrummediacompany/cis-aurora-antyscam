@@ -387,11 +387,14 @@ def _parse_first_line_csv(txt: str):
 
 
 def _badge_by_score(sc: float) -> str:
-    if sc >= 8:
-        return "<span style='padding:6px 12px;border-radius:999px;background:#1c8f4d;color:#fff;font-weight:700'>GOOD</span>"
-    if sc >= 5:
-        return "<span style='padding:6px 12px;border-radius:999px;background:#ffb703;color:#111;font-weight:700'>RISK</span>"
-    return "<span style='padding:6px 12px;border-radius:999px;background:#d62828;color:#fff;font-weight:700'>EXTREME</span>"
+    if sc >= 8.0:
+        # GO
+        return "<span style='padding:6px 12px;border-radius:999px;background:#1c8f4d;color:#fff;font-weight:700'>GO</span>"
+    if sc >= 6.60:
+        # REVIEW
+        return "<span style='padding:6px 12px;border-radius:999px;background:#ffb703;color:#111;font-weight:700'>REVIEW</span>"
+    # NO-GO
+    return "<span style='padding:6px 12px;border-radius:999px;background:#d62828;color:#fff;font-weight:700'>NO-GO</span>"
 
 
 MAP_RULES = [
@@ -519,7 +522,34 @@ def last_report_html():
               </div>
             </div>"""
 
-            detected_html = """
+            decision = (report.get("decision") or "").upper()
+            if decision == "GO":
+                desc_block = """
+              <div class="desc-go" style="margin-top:6px;margin-bottom:6px;color:#d1fae5;font-size:13px;line-height:1.6;">
+                <b>GO — Kod wygląda solidnie.</b><br>
+                Kontrakt przeszedł analizy CIS Aurora bez istotnych sygnałów zagrożenia.
+                Nie wykryliśmy negatywnych wzorców, blacklist, honeypotów ani ryzykownych konstrukcji.
+                <br><br>To nie są porady inwestycyjne — wykonaj własny research (DYOR).
+              </div>"""
+            elif decision == "REVIEW":
+                desc_block = """
+              <div class="desc-review" style="margin-top:6px;margin-bottom:6px;color:#fee2b3;font-size:13px;line-height:1.6;">
+                <b>REVIEW — wymagany własny research.</b><br>
+                Kod wygląda poprawnie, jednak pewne elementy wymagają dodatkowej weryfikacji manualnej 
+                oraz zaufania do zespołu (np. uprawnienia właściciela, duża centralziacja, proxy, zmienne parametry).
+                <br><br>Nie widzimy typowych wzorców scamowych, ale decyzja należy do Ciebie.
+              </div>"""
+            else:
+                desc_block = """
+              <div class="desc-nogo" style="margin-top:6px;margin-bottom:6px;color:#fecaca;font-size:13px;line-height:1.6;">
+                <b>NO-GO — nie rekomendujemy.</b><br>
+                Wykryto wzorce wysokiego ryzyka (np. blacklist, honeypot, manipulacje podatkami,
+                niebezpieczne uprawnienia właściciela lub ukryte funkcje).
+                <br><br>Kategorycznie odradzamy interakcję z tym kontraktem — ryzyko utraty środków jest wysokie.
+              </div>"""
+
+            detected_html = f"""
+              {desc_block}
               <div style="margin-top:10px;margin-bottom:8px;color:#cfd6dc;font-size:13px;line-height:1.6;opacity:.95">
                 🤝 <strong>Ocena to efekt analizy kodu przez silnik CIS Aurora</strong> — pamiętaj o własnym researchu (DYOR).<br>
                 To nie są porady inwestycyjne — decyzje podejmuj samodzielnie.<br>
