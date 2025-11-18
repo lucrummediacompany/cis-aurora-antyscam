@@ -238,7 +238,7 @@ def analyze():
             jsonify(
                 {
                     "error": "invalid_address",
-                    "message": "Invalid ETH address. Expected 0x + 40 hex chars.",
+                    "message": "Podany adres nie jest prawidłowym adresem Ethereum (musi mieć format 0x + 40 znaków szesnastkowych).",
                 }
             ),
             400,
