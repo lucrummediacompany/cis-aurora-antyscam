@@ -175,7 +175,7 @@ def has_active_or_trial(email: str) -> bool:
 
     return False
 
-# ---------- ROUTES ----------
+# ---------- ROUTES / PUBLIC API ENDPOINTS (UI + ANALYZE) ----------
 @app.route("/")
 def home():
     return open(os.path.join(APP_ROOT, "index.html"), "r", encoding="utf-8").read()
@@ -213,40 +213,11 @@ def analyze():
         elapsed = round(time.time() - start_ts, 2)
         status = "ok" if proc.returncode == 0 else "error"
 
-        stdout_tail = tail_text(proc.stdout or "", 4000)
-        stderr_tail = tail_text(proc.stderr or "", 2000)
-        combined = (stdout_tail + "\n" + stderr_tail).lower()
-
-        # ❌ Jeśli analizator zwrócił błąd – NIE szukamy raportu, tylko zwracamy komunikat
-        if status != "ok":
-            # Specjalny przypadek: brak źródła na Etherscan
-            if "brak źródła dla" in combined or "brak zrodla dla" in combined:
-                return jsonify({
-                    "status": "error",
-                    "error": "no_source",
-                    "message": "Brak źródła dla tego kontraktu na Etherscan – analiza możliwa tylko dla zweryfikowanych smart kontraktów z pełnym kodem.",
-                    "address": address,
-                    "cmd": cmd,
-                    "stdout_tail": stdout_tail,
-                    "stderr_tail": stderr_tail
-                }), 404
-
-            # Inny błąd po stronie silnika
-            return jsonify({
-                "status": "error",
-                "error": "analyzer_failed",
-                "message": "Analiza zakończyła się błędem po stronie silnika Aurora. Sprawdź logi serwera.",
-                "address": address,
-                "cmd": cmd,
-                "stdout_tail": stdout_tail,
-                "stderr_tail": stderr_tail
-            }), 500
-
-        # ✅ Tylko przy status == ok szukamy raportu dla TEGO żądania
+        # NEW: wskaż raport powstały w TYM żądaniu
         report_path = latest_report_by_id(after_ts=start_ts) or latest_report_path()
         report_rel = os.path.relpath(report_path, APP_ROOT) if report_path else None
 
-        # Małe podsumowanie z raportu (name / score / decision)
+        # NEW: małe podsumowanie z raportu (name / score / decision)
         summary = None
         if report_path:
             try:
@@ -267,15 +238,15 @@ def analyze():
                 summary = None
 
         return jsonify({
-            "status": "ok",
+            "status": status,
             "elapsed_sec": elapsed,
             "address": address,
             "cmd": cmd,
-            "stdout_tail": stdout_tail,
-            "stderr_tail": stderr_tail,
+            "stdout_tail": tail_text(proc.stdout, 4000),
+            "stderr_tail": tail_text(proc.stderr, 2000),
             "last_report": report_rel,
             "summary": summary
-        }), 200
+        }), (200 if status == "ok" else 500)
     except subprocess.TimeoutExpired:
         return jsonify({"error": f"Analyzer timed out after {ANALYZE_TIMEOUT_SEC}s", "address": address}), 504
 

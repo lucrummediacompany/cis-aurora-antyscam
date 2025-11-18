@@ -1,5 +1,5 @@
 # ==================== CIS_OFF_AURORA_v3_3.py — PART 1/5 ====================
-# Aurora v3.3 (NEXUS) — "CIS Integrated+"
+# Aurora v3.3 (NEXUS) — "CIS Integrated+ CORE-STABLE"
 # Przywrócone z v2.7:
 #   • Oracle Touch (ownership surface, mutable caps, one-block, lock hints, secrets, heatmap)
 #   • Reachability (pause/fee/upgrade) + Explain v2
