@@ -50,6 +50,116 @@ def tail_text(txt: str, max_len: int = 2000) -> str:
     return txt if len(txt) <= max_len else txt[-max_len:]
 
 
+# ---------- CIS CYBER SHIELD — RATE LIMIT / BAN LIST ----------
+RATE_WINDOW_SEC = 5          # okno liczenia requestów
+RATE_SOFT_LIMIT = 10         # soft limit (ostrzeżenie)
+RATE_HARD_LIMIT = 20         # twardy limit (natychmiastowy ban)
+BAN_DURATION_SEC = 3600      # 1h bana
+SOFT_STRIKES_LIMIT = 3       # ile razy można przekroczyć soft limit zanim wpadnie ban
+
+REQUEST_LOG = {}             # ip -> [timestamps]
+SOFT_STRIKES = {}            # ip -> liczba soft-strike'ów
+BANNED_IPS = {}              # ip -> ban_until_timestamp
+
+
+def _now() -> float:
+    return time.time()
+
+
+def _get_client_ip() -> str:
+    """
+    Pobierz IP klienta z X-Forwarded-For (Render / proxy) lub remote_addr.
+    """
+    xff = request.headers.get("X-Forwarded-For", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.remote_addr or "unknown"
+
+
+def _cleanup_ip_window(ip: str, now: float) -> int:
+    """
+    Czyści stare wpisy dla IP spoza okna RATE_WINDOW_SEC.
+    Zwraca aktualną liczbę requestów w oknie.
+    """
+    lst = REQUEST_LOG.get(ip)
+    if not lst:
+        return 0
+    lst = [t for t in lst if now - t <= RATE_WINDOW_SEC]
+    if lst:
+        REQUEST_LOG[ip] = lst
+    else:
+        REQUEST_LOG.pop(ip, None)
+    return len(lst)
+
+
+def _is_ip_banned(ip: str) -> bool:
+    """
+    Sprawdza, czy IP jest zbanowane (i czy ban nie wygasł).
+    """
+    now = _now()
+    banned_until = BANNED_IPS.get(ip)
+    if not banned_until:
+        return False
+    if now >= banned_until:
+        # ban wygasł – czyścimy
+        BANNED_IPS.pop(ip, None)
+        SOFT_STRIKES.pop(ip, None)
+        return False
+    return True
+
+
+def _register_request_for_ip(ip: str) -> str:
+    """
+    Rejestruje pojedynczy request dla ip i zwraca status:
+      • "ok"          – w limicie
+      • "soft"        – przekroczony soft-limit (ale jeszcze bez bana)
+      • "banned_soft" – ban po wielokrotnym przekroczeniu soft-limit
+      • "banned_hard" – natychmiastowy ban (HARD_LIMIT)
+    """
+    now = _now()
+    # Czy ban wygasł:
+    _is_ip_banned(ip)
+
+    # Jeśli dalej banned – nic nie liczymy
+    if ip in BANNED_IPS:
+        return "banned_hard"
+
+    count = _cleanup_ip_window(ip, now)
+    count += 1
+    REQUEST_LOG.setdefault(ip, []).append(now)
+
+    # Twardy limit — ewidentny flood
+    if count > RATE_HARD_LIMIT:
+        BANNED_IPS[ip] = now + BAN_DURATION_SEC
+        return "banned_hard"
+
+    # Soft limit — ostrzeżenie + liczenie strike'ów
+    if count > RATE_SOFT_LIMIT:
+        strikes = SOFT_STRIKES.get(ip, 0) + 1
+        SOFT_STRIKES[ip] = strikes
+        if strikes >= SOFT_STRIKES_LIMIT:
+            BANNED_IPS[ip] = now + BAN_DURATION_SEC
+            return "banned_soft"
+        return "soft"
+
+    return "ok"
+
+
+def _headers_look_like_bot() -> bool:
+    """
+    Minimalna heurystyka do wykrywania botów:
+      • pusty User-Agent
+      • brak nagłówka Accept (typowe dla curl/skryptów bez przeglądarki)
+    """
+    ua = (request.headers.get("User-Agent") or "").strip()
+    if not ua:
+        return True
+    accept = request.headers.get("Accept")
+    if not accept:
+        return True
+    return False
+
+
 # ---- Raporty ANALYZE/by_id ----
 def latest_report_by_id(after_ts: float | None = None) -> str:
     """Zwraca NAJNowszy raport z ANALYZE/by_id/*.json, opcjonalnie tylko >= after_ts."""
@@ -205,6 +315,54 @@ def health():
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
+    ip = _get_client_ip()
+
+    # 🔒 1) Ban-lista — IP już zbanowane?
+    if _is_ip_banned(ip):
+        # Obliczamy pozostały czas bana (jeśli jeszcze jest)
+        now = _now()
+        ban_until = BANNED_IPS.get(ip, now)
+        remaining = max(0, int(ban_until - now))
+        return (
+            jsonify(
+                {
+                    "error": "rate_limited",
+                    "message": "Zbyt wiele zapytań z tego adresu IP. Spróbuj ponownie później.",
+                    "retry_after_sec": remaining,
+                }
+            ),
+            429,
+        )
+
+    # 🔍 2) Heurystyka botów — pusty UA / brak Accept
+    if _headers_look_like_bot():
+        # od razu ban na 1h – ruch ewidentnie nie przeglądarkowy
+        BANNED_IPS[ip] = _now() + BAN_DURATION_SEC
+        return (
+            jsonify(
+                {
+                    "error": "bot_detected",
+                    "message": "Ruch wygląda jak automatyczny (bot/skrypt). Dostęp zablokowany.",
+                }
+            ),
+            403,
+        )
+
+    # ⏱ 3) Rejestrujemy request w oknie RATE_WINDOW_SEC
+    rl_status = _register_request_for_ip(ip)
+    if rl_status in ("banned_hard", "banned_soft"):
+        return (
+            jsonify(
+                {
+                    "error": "rate_limited",
+                    "message": "Zbyt wiele zapytań z tego adresu IP. Spróbuj ponownie później.",
+                    "retry_after_sec": BAN_DURATION_SEC,
+                }
+            ),
+            429,
+        )
+    # rl_status == "soft" lub "ok" – dla frontu działamy normalnie
+
     email = (request.headers.get("X-User-Email") or "").strip().lower()
 
     # ✅ Backend gating tylko gdy Outseta skonfigurowana; inaczej nie blokujemy
@@ -346,6 +504,7 @@ def analyze():
         )
 
     except subprocess.TimeoutExpired:
+        # timeout analizatora – potencjalny symptom floodu / problemu po stronie core
         return (
             jsonify(
                 {
