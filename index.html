@@ -165,6 +165,36 @@
           <button class="primary" type="submit">Analizuj</button>
         </div>
       </form>
+
+      <!-- === User Disagreement Report Box === -->
+      <div id="disagreeBox" style="
+        margin-top:18px;
+        padding:14px;
+        border-radius:10px;
+        background:#101421;
+        border:1px solid #2a2e37;
+      ">
+        <div style="font-size:15px;margin-bottom:8px;color:#e6e7ea;font-weight:600;">
+          ❓ Nie zgadzasz się z oceną?
+        </div>
+        <div style="font-size:13px;color:#9aa0a6;margin-bottom:10px;">
+          Wklej adres kontraktu, który chcesz zgłosić do ręcznej analizy.
+          Otrzymamy go bezpośrednio na e-mail: <b>lucrum.media.company@gmail.com</b>.
+        </div>
+
+        <input id="disagreeAddress" type="text"
+               placeholder="0x0000000000000000000000000000000000000000"
+               style="width:100%;padding:10px;border-radius:8px;
+               border:1px solid #2a2e37;background:#0f1220;color:#e6e7ea;margin-bottom:10px;">
+
+        <button id="disagreeSendBtn" style="
+          background:#1f2330;color:#e6e7ea;border:none;border-radius:8px;
+          padding:8px 14px;cursor:pointer;transition:.2s;width:100%;
+        ">Wyślij do analizy</button>
+
+        <div id="disagreeMsg" style="font-size:13px;color:#9aa0a6;margin-top:10px;display:none;"></div>
+      </div>
+      <!-- === END === -->
     </div>
 
     <div id="resultCard" class="card" style="display:none">
@@ -425,6 +455,39 @@
         }catch(e){
           htmlBox.innerHTML = `<pre>${String(e)}</pre>`;
         }
+      });
+    }
+
+    // === Disagreement mailto box logic ===
+    const disagreeBtn = document.getElementById("disagreeSendBtn");
+    const disagreeMsg = document.getElementById("disagreeMsg");
+
+    if(disagreeBtn && disagreeMsg){
+      disagreeBtn.addEventListener("click", (e)=>{
+        e.preventDefault();
+
+        const addrInput = document.getElementById("disagreeAddress");
+        const addr = addrInput ? addrInput.value.trim() : "";
+
+        if(!addr){
+          disagreeMsg.style.display = "block";
+          disagreeMsg.textContent = "❌ Podaj adres kontraktu.";
+          return;
+        }
+
+        const subject = encodeURIComponent("CIS Aurora — zgłoszenie kontraktu do ręcznej analizy");
+        const userEmail = (profile && profile.Email) ? profile.Email : "nieznany";
+        const body = encodeURIComponent(
+          "Adres kontraktu: " + addr +
+          "\nUżytkownik (e-mail w Outseta): " + userEmail +
+          "\n\nNapisz proszę, dlaczego nie zgadzasz się z oceną i jakie masz uwagi:\n"
+        );
+
+        window.location.href =
+          "mailto:lucrum.media.company@gmail.com?subject=" + subject + "&body=" + body;
+
+        disagreeMsg.style.display = "block";
+        disagreeMsg.textContent = "✅ Otworzyliśmy maila z wypełnionym zgłoszeniem. Dziękujemy!";
       });
     }
   </script>
