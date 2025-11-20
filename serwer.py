@@ -4,6 +4,8 @@ from flask import Flask, request, jsonify, send_from_directory
 import subprocess, os, time, re, glob, json
 import requests
 from datetime import datetime, timezone
+import smtplib
+from email.mime.text import MIMEText
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 ANALYZE_DIR = os.path.join(APP_ROOT, "ANALYZE")
@@ -22,7 +24,59 @@ OUTSETA_DOMAIN = os.getenv("OUTSETA_DOMAIN", "").strip()
 OUTSETA_KEY    = os.getenv("OUTSETA_API_KEY", "").strip()
 OUTSETA_SECRET = os.getenv("OUTSETA_API_SECRET", "").strip()
 
+# SMTP / Gmail – zgłoszenia "Nie zgadzasz się z oceną?"
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "").strip()
+SMTP_PASS = os.getenv("SMTP_PASS", "").strip()
+SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USER).strip()
+SMTP_TO   = os.getenv("SMTP_TO", "lucrum.media.company@gmail.com").strip()
+
+
+def _smtp_configured() -> bool:
+    return bool(SMTP_HOST and SMTP_USER and SMTP_PASS and SMTP_FROM and SMTP_TO)
+
+
+def send_disagreement_email(address: str, user_email: str) -> bool:
+    """
+    Wysyła proste zgłoszenie e-mail na adres supportowy,
+    gdy użytkownik nie zgadza się z oceną kontraktu.
+    """
+    if not _smtp_configured():
+        print("[DISAGREE][WARN] SMTP not configured; skipping email.")
+        return False
+
+    subject = "CIS Aurora — zgłoszenie kontraktu do ręcznej analizy"
+
+    body = (
+        "Adres kontraktu: {addr}\n"
+        "Użytkownik (e-mail w Outseta / aplikacji): {user}\n\n"
+        "Użytkownik zgłosił, że nie zgadza się z oceną tego kontraktu.\n"
+        "Możesz odpisać bezpośrednio do użytkownika i poprosić o więcej szczegółów."
+    ).format(
+        addr=address,
+        user=user_email or "nieznany",
+    )
+
+    try:
+        msg = MIMEText(body, _charset="utf-8")
+        msg["Subject"] = subject
+        msg["From"] = SMTP_FROM
+        msg["To"] = SMTP_TO
+
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=20) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(SMTP_FROM, [SMTP_TO], msg.as_string())
+
+        print(f"[DISAGREE] Email sent for {address}")
+        return True
+    except Exception as e:
+        print(f"[DISAGREE][ERROR] {e}")
+        return False
+
 app = Flask(__name__, static_folder="assets", static_url_path="/assets")
+
 
 # --------- EYES overlay ----------
 EYES_PATH = os.path.join(APP_ROOT, "eyes.json")
@@ -515,6 +569,73 @@ def analyze():
             ),
             504,
         )
+
+
+@app.route("/send-disagreement", methods=["POST"])
+def send_disagreement():
+    """
+    End-point do zgłaszania kontraktów, z których oceną użytkownik się nie zgadza.
+    Chroniony tą samą tarczą (rate-limit / ban) co /analyze.
+    """
+    ip = _get_client_ip()
+
+    # 1) Ban – jeśli IP już zbanowane
+    if _is_ip_banned(ip):
+        now = _now()
+        ban_until = BANNED_IPS.get(ip, now)
+        remaining = max(0, int(ban_until - now))
+        return (
+            jsonify(
+                {
+                    "error": "rate_limited",
+                    "message": "Zbyt wiele zapytań z tego adresu IP. Spróbuj ponownie później.",
+                    "retry_after_sec": remaining,
+                }
+            ),
+            429,
+        )
+
+    # 2) Rejestrujemy request w oknie czasowym
+    rl_status = _register_request_for_ip(ip)
+    if rl_status in ("banned_hard", "banned_soft"):
+        return (
+            jsonify(
+                {
+                    "error": "rate_limited",
+                    "message": "Zbyt wiele zapytań z tego adresu IP. Spróbuj ponownie później.",
+                    "retry_after_sec": BAN_DURATION_SEC,
+                }
+            ),
+            429,
+        )
+
+    address = (request.form.get("address") or "").strip()
+    user_email = (request.form.get("user_email") or "").strip()
+
+    if not ADDRESS_RE.match(address):
+        return (
+            jsonify(
+                {
+                    "error": "invalid_address",
+                    "message": "Podany adres nie jest prawidłowym adresem Ethereum (musi mieć format 0x + 40 znaków).",
+                }
+            ),
+            400,
+        )
+
+    sent = send_disagreement_email(address, user_email)
+    if not sent:
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Nie udało się wysłać zgłoszenia e-mail (SMTP nie jest skonfigurowane lub wystąpił błąd wysyłki).",
+                }
+            ),
+            500,
+        )
+
+    return jsonify({"status": "ok", "message": "Zgłoszenie zostało wysłane. Dziękujemy!"})
 
 
 @app.route("/assets/<path:filename>")

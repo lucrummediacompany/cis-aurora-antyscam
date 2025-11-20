@@ -458,36 +458,50 @@
       });
     }
 
-    // === Disagreement mailto box logic ===
+    // === Disagreement API box logic ===
     const disagreeBtn = document.getElementById("disagreeSendBtn");
     const disagreeMsg = document.getElementById("disagreeMsg");
 
-    if(disagreeBtn && disagreeMsg){
-      disagreeBtn.addEventListener("click", (e)=>{
+    if (disagreeBtn && disagreeMsg) {
+      disagreeBtn.addEventListener("click", async (e) => {
         e.preventDefault();
 
         const addrInput = document.getElementById("disagreeAddress");
         const addr = addrInput ? addrInput.value.trim() : "";
 
-        if(!addr){
+        if (!addr) {
           disagreeMsg.style.display = "block";
           disagreeMsg.textContent = "❌ Podaj adres kontraktu.";
           return;
         }
 
-        const subject = encodeURIComponent("CIS Aurora — zgłoszenie kontraktu do ręcznej analizy");
-        const userEmail = (profile && profile.Email) ? profile.Email : "nieznany";
-        const body = encodeURIComponent(
-          "Adres kontraktu: " + addr +
-          "\nUżytkownik (e-mail w Outseta): " + userEmail +
-          "\n\nNapisz proszę, dlaczego nie zgadzasz się z oceną i jakie masz uwagi:\n"
-        );
-
-        window.location.href =
-          "mailto:lucrum.media.company@gmail.com?subject=" + subject + "&body=" + body;
-
         disagreeMsg.style.display = "block";
-        disagreeMsg.textContent = "✅ Otworzyliśmy maila z wypełnionym zgłoszeniem. Dziękujemy!";
+        disagreeMsg.textContent = "⏳ Wysyłamy zgłoszenie…";
+
+        try {
+          const resp = await fetch("/send-disagreement", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              address: addr,
+              user_email: (profile && profile.Email) ? profile.Email : ""
+            })
+          });
+
+          let data = null;
+          try { data = await resp.json(); } catch (_) {}
+
+          if (resp.ok && data && data.status === "ok") {
+            disagreeMsg.textContent = "✅ Zgłoszenie zostało wysłane do zespołu Aurora. Dziękujemy!";
+          } else {
+            const msg = data && data.message
+              ? data.message
+              : "Nie udało się wysłać zgłoszenia. Spróbuj ponownie później.";
+            disagreeMsg.textContent = "❌ " + msg;
+          }
+        } catch (err) {
+          disagreeMsg.textContent = "❌ Wystąpił błąd sieci podczas wysyłania zgłoszenia.";
+        }
       });
     }
   </script>
