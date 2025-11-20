@@ -428,5 +428,30 @@
       });
     }
   </script>
+  <script>
+    (function () {
+      try {
+        var url = new URL(window.location.href);
+        var changed = false;
+
+        ["access_token", "token_type", "expires_in", "scope"].forEach(function (key) {
+          if (url.searchParams.has(key)) {
+            url.searchParams.delete(key);
+            changed = true;
+          }
+        });
+
+        if (changed) {
+          var clean =
+            url.pathname +
+            (url.searchParams.toString() ? "?" + url.searchParams.toString() : "") +
+            url.hash;
+          window.history.replaceState({}, document.title, clean);
+        }
+      } catch (err) {
+        console.warn("Token cleanup error:", err);
+      }
+    })();
+  </script>
 </body>
 </html>
