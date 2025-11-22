@@ -756,28 +756,36 @@ def _normalize_detected_from_json(report: dict) -> list:
 
 @app.route("/last-report-html")
 def last_report_html():
-    # 🔑 priorytet: konkretny path z ANALYZE/by_id (z frontu)
+    # 🚫 ZERO fallbacku – wymagamy jawnego path=
     path_param = request.args.get("path", "").strip()
-    if path_param:
-        # zabezpieczenie: ścieżka zawsze względna względem APP_ROOT
-        abs_path = os.path.abspath(os.path.join(APP_ROOT, path_param))
-        if not abs_path.startswith(APP_ROOT):
-            return (
-                "<p>Nieprawidłowa ścieżka raportu.</p>",
-                400,
-                {"Content-Type": "text/html; charset=utf-8"},
-            )
-        path = abs_path
-    else:
-        # fallback tylko dla ręcznego wejścia na /last-report-html
-        path = latest_report_path()
-
-    if not path or not os.path.isfile(path):
+    if not path_param:
         return (
-            "<p>Brak raportów.</p>",
+            "<p>Brak ścieżki raportu (parametr path jest wymagany).</p>",
+            400,
+            {"Content-Type": "text/html; charset=utf-8"},
+        )
+
+    # zabezpieczenie / sandbox
+    abs_path = os.path.abspath(os.path.join(APP_ROOT, path_param))
+    if not abs_path.startswith(APP_ROOT):
+        return (
+            "<p>Nieprawidłowa ścieżka raportu.</p>",
+            400,
+            {"Content-Type": "text/html; charset=utf-8"},
+        )
+
+    if not os.path.isfile(abs_path):
+        return (
+            f"<p>Brak raportu: {path_param}</p>",
             404,
             {"Content-Type": "text/html; charset=utf-8"},
         )
+
+    # dalszy kod – BEZ ZMIAN
+    path = abs_path
+    rel = os.path.relpath(path, APP_ROOT)
+    ext = os.path.splitext(path)[1].lower()
+    ...
 
     try:
         rel = os.path.relpath(path, APP_ROOT)

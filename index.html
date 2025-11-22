@@ -455,12 +455,22 @@
           return;
         }
 
-        // Zawsze ładujemy tylko finalny raport HTML
-        try{
-          const r = await fetch("/last-report-html");
-          const txt = await r.text();
-          htmlBox.innerHTML = (r.ok ? txt : `<pre>${txt}</pre>`);
-        }catch(e){
+        // Zawsze ładujemy tylko finalny raport HTML **po path, nie last-report!!**
+        try {
+          const lastPath = data && data.last_report ? data.last_report : null;
+
+          if (!lastPath) {
+            htmlBox.innerHTML = `
+              <div style="padding:20px;border-radius:12px;background:#1a0f14;border:1px solid #7f1d1d;color:#fecaca;font-size:15px;line-height:1.5;">
+                <div style="font-size:20px;margin-bottom:6px;">⚠️ Brak raportu</div>
+                <div>Backend nie zwrócił ścieżki raportu (last_report). Spróbuj ponownie.</div>
+              </div>`;
+          } else {
+            const r = await fetch("/last-report-html?path=" + encodeURIComponent(lastPath));
+            const txt = await r.text();
+            htmlBox.innerHTML = (r.ok ? txt : `<pre>${txt}</pre>`);
+          }
+        } catch (e) {
           htmlBox.innerHTML = `<pre>${String(e)}</pre>`;
         }
       });
