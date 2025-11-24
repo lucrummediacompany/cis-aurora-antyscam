@@ -462,66 +462,58 @@
 
     <div id="resultCard" class="card" style="display:none">
       <h3>Wynik</h3>
-      <!-- Tylko raport HTML -->
-      <!-- Pełna legenda po zalogowaniu -->
+
       <section class="legend-full">
-
-      </section>
-
-      <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0"></div>
-      <!-- Konsola (wyłączona): zostawiamy w DOM, ale nie pokazujemy -->
-      <pre id="result" style="display:none;margin-top:12px">—</pre>
         <h2 class="legend-full-title">Legenda oceny kontraktów CIS Aurora</h2>
 
         <div class="legend-grid">
           <div class="legend-item">
             <div class="legend-badge legend-badge-go">GO</div>
-            <h3>GO — kontrakt wygląda zdrowo</h3>
+            <h3>GO — kontrakt wygląda dobrze (polecamy)</h3>
             <p>
-              W kodzie nie znaleziono poważnych zagrożeń.  
-              Brak ukrytych blokad handlu, brak podejrzanego mintu, brak niebezpiecznych uprawnień właściciela.  
-              To sygnał „technicznie wygląda dobrze”, a nie obietnica wzrostów — po prostu nie widzimy czerwonych flag.
+              W kodzie nie widać poważnych zagrożeń: brak ukrytych blokad handlu, podejrzanego mintu
+              czy niebezpiecznych uprawnień właściciela. To znaczy, że z perspektywy technicznej kontrakt
+              wygląda bezpieczniej niż większość rynku. GO nie jest obietnicą zysków, ale sygnałem, że
+              <strong>ten smart kontrakt można brać pod uwagę</strong>.
             </p>
           </div>
 
           <div class="legend-item">
             <div class="legend-badge legend-badge-review">REVIEW</div>
-            <h3>REVIEW — sprawdź szczegóły przed decyzją</h3>
+            <h3>REVIEW — zatrzymaj się i pomyśl</h3>
             <p>
-              Kod wygląda OK, ale ma funkcje zależne od zaufania do zespołu: zmienne podatki, mint do ról, uprawnienia
-              administracyjne, opcje aktualizacji lub mechanizmy DAO.  
-              Nie jest to złe — po prostu warto przeczytać raport i zrozumieć, jak działa projekt.
+              Kontrakt jest zbudowany poprawnie, ale ma elementy wymagające zaufania do zespołu:
+              podatki, możliwość zmiany parametrów, mint/burn dla ról, aktualizacje lub DAO.
+              W dobrych rękach działają normalnie, w złych mogą być użyte agresywnie.
+              REVIEW oznacza: projekt może być OK, ale <strong>przeczytaj raport i sprawdź zespół</strong>,
+              zanim wejdziesz z większym kapitałem.
             </p>
           </div>
 
           <div class="legend-item">
             <div class="legend-badge legend-badge-nogo">NO-GO</div>
-            <h3>NO-GO — wysoki poziom ryzyka</h3>
+            <h3>NO-GO — nie polecamy</h3>
             <p>
-              W kodzie wykryto elementy, które mogą realnie zagrozić środkom: blokady sprzedaży,
-              mint bez limitu, silną kontrolę właściciela, blacklisty/whitelisty, drainer lub
-              mechanizmy działające jak honeypot.
-              <br>
-              NO-GO <strong>nie oznacza</strong> automatycznie scamu — to sygnał, że kontrakt
-              <strong>nie spełnia standardów bezpieczeństwa CIS Aurora</strong> i wymaga
-              wyjątkowej ostrożności.
+              W kodzie są mechanizmy, które mogą realnie zagrozić środkom: blokady sprzedaży,
+              mint bez limitu, skrajna centralizacja, drainer lub zachowanie jak honeypot.
+              To nie musi być od razu scam, ale technicznie wygląda bardzo słabo.
+              NO-GO oznacza, że <strong>nie polecamy</strong>, chyba że w pełni rozumiesz ryzyko
+              i traktujesz to jak spekulację z dużą szansą utraty środków.
             </p>
           </div>
         </div>
 
         <div class="legend-extra">
-          <h3>Dodatkowe filtry ryzyka: SELL / BUY / P2P</h3>
+          <h3>Aurora ocenia dwutorowo</h3>
           <p>
-            Aurora patrzy na kontrakt z trzech stron:
+            Najpierw analizujemy sam <strong>kod smart kontraktu</strong>: logikę, uprawnienia,
+            podatki, mint, blokady handlu i inne mechanizmy, które mogą uderzyć w inwestora.
+            Na tej podstawie powstaje ocena <strong>GO / REVIEW / NO-GO</strong>.
           </p>
-          <ul>
-            <li><strong>SELL</strong> — czy z tokena da się <strong>normalnie wyjść</strong>: honeypot, limity, blokady sprzedaży, sztuczne bariery.</li>
-            <li><strong>BUY</strong> — co może pójść źle przy <strong>wejściu w projekt</strong>: podejrzane podatki, ukryty drainer, manipulacja płynnością lub routerem.</li>
-            <li><strong>P2P</strong> — bezpieczeństwo <strong>zwykłych transferów między użytkownikami</strong>: blacklist/whitelist, zamrażanie adresów, inne formy cenzury.</li>
-          </ul>
           <p>
-            <strong>PASS</strong> = brak twardych czerwonych flag w danym obszarze — mechanizm wygląda technicznie neutralnie.  
-            <strong>ALERT</strong> = wykryto coś, co może utrudnić handel lub zwiększyć ryzyko utraty środków — wymaga ręcznego sprawdzenia.
+            Drugi poziom to ogólne wrażenie ryzyka — czy kontrakt przypomina zdrowe projekty z rynku,
+            czy raczej schematy znane ze scamów. Nie patrzymy na cenę, hype ani marketing;
+            skupiamy się na tym, co jest zapisane w blockchainie i czego nie da się „dogadać”.
           </p>
         </div>
 
@@ -531,6 +523,10 @@
           Aurora pomaga wychwycić ryzyko, ale <strong>ostateczna decyzja inwestycyjna zawsze należy do Ciebie</strong>.
         </p>
       </section>
+
+      <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0"></div>
+      <!-- Konsola (wyłączona): zostawiamy w DOM, ale nie pokazujemy -->
+      <pre id="result" style="display:none;margin-top:12px">—</pre>
     </div>
 
     <div class="partners-ticker-wrapper">
