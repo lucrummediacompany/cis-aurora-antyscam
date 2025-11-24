@@ -104,6 +104,240 @@
     .footer a:hover{
       text-decoration:underline;
     }
+
+    /* === LEGEND STYLES === */
+    .legend-short {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background:
+        radial-gradient(circle at top left, rgba(245, 200, 106, 0.12), transparent 60%),
+        radial-gradient(circle at bottom right, rgba(255, 127, 209, 0.10), transparent 60%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      text-align: left;
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.55);
+    }
+    .legend-short-title {
+      font-weight: 600;
+      margin-bottom: 6px;
+      font-size: 0.96rem;
+    }
+    .legend-short ul {
+      margin: 0 0 6px 0;
+      padding: 0;
+      list-style: none;
+    }
+    .legend-short li {
+      margin-bottom: 4px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .legend-short li strong {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 70px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(15, 18, 32, 0.9);
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+      flex-shrink: 0;
+      text-align: center;
+    }
+    .legend-short li:nth-child(1) strong {
+      border-color: rgba(56, 189, 248, 0.9);
+      background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.25), rgba(15, 23, 42, 0.95));
+    }
+    .legend-short li:nth-child(2) strong {
+      border-color: rgba(250, 204, 21, 0.9);
+      background: radial-gradient(circle at top left, rgba(250, 204, 21, 0.25), rgba(17, 24, 39, 0.95));
+    }
+    .legend-short li:nth-child(3) strong {
+      border-color: rgba(248, 113, 113, 0.95);
+      background: radial-gradient(circle at top left, rgba(248, 113, 113, 0.25), rgba(24, 18, 24, 0.98));
+    }
+    .legend-short li span,
+    .legend-short li {
+      color: #e6e7ea;
+    }
+    .legend-short-note {
+      font-size: 0.78rem;
+      opacity: 0.8;
+      margin-top: 4px;
+    }
+    .nogo-info {
+      display: inline-block;
+      margin-top: 4px;
+      font-size: 0.82rem;
+      opacity: 0.85;
+      color: #ffb3b3;
+    }
+
+    .legend-full {
+      margin-top: 20px;
+      padding: 18px 20px;
+      border-radius: 16px;
+      background:
+        radial-gradient(circle at top left, rgba(245, 200, 106, 0.10), transparent 55%),
+        radial-gradient(circle at bottom right, rgba(127, 220, 255, 0.12), transparent 55%),
+        linear-gradient(135deg, #0b0d16, #111423);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.95rem;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.65);
+    }
+    .legend-full-title {
+      font-size: 1.18rem;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    .legend-grid {
+      display: grid;
+      gap: 1.1rem;
+    }
+    @media (min-width: 900px) {
+      .legend-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+    .legend-item {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(8, 10, 20, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    }
+    .legend-item h3 {
+      font-size: 1rem;
+      margin: 6px 0 4px;
+    }
+    .legend-item p {
+      margin: 0;
+      font-size: 0.88rem;
+      line-height: 1.55;
+    }
+
+    .legend-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 11px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
+      background: radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 55%);
+    }
+    .legend-badge-go {
+      color: #e0faff;
+      background:
+        radial-gradient(circle at top, rgba(56, 189, 248, 0.35), transparent 60%),
+        linear-gradient(135deg, rgba(22, 163, 255, 0.95), rgba(56, 189, 248, 0.85));
+      border: 1px solid rgba(56, 189, 248, 0.9);
+    }
+    .legend-badge-review {
+      color: #fef9c3;
+      background:
+        radial-gradient(circle at top, rgba(250, 204, 21, 0.35), transparent 60%),
+        linear-gradient(135deg, rgba(202, 138, 4, 0.95), rgba(250, 204, 21, 0.9));
+      border: 1px solid rgba(250, 204, 21, 0.9);
+    }
+    .legend-badge-nogo {
+      color: #fee2e2;
+      background:
+        radial-gradient(circle at top, rgba(248, 113, 113, 0.38), transparent 60%),
+        linear-gradient(135deg, rgba(220, 38, 38, 0.96), rgba(248, 113, 113, 0.9));
+      border: 1px solid rgba(248, 113, 113, 0.95);
+      box-shadow: 0 0 12px rgba(255, 67, 67, 0.55),
+                  inset 0 0 8px rgba(255, 95, 95, 0.35);
+    }
+
+    .legend-extra {
+      margin-top: 1.2rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 0.9rem;
+      font-size: 0.9rem;
+    }
+    .legend-extra h3 {
+      margin: 0 0 4px;
+      font-size: 0.95rem;
+    }
+    .legend-extra ul {
+      margin: 0 0 4px 1.1rem;
+      padding: 0;
+    }
+    .legend-extra li {
+      margin-bottom: 2px;
+    }
+    .legend-disclaimer {
+      margin-top: 8px;
+      font-size: 0.78rem;
+      opacity: 0.78;
+    }
+
+    /* === Partners ticker (BingX / Stripe / Outseta) === */
+    .partners-ticker-wrapper {
+      margin-top: 26px;
+      padding: 6px 0;
+      overflow: hidden;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      background:
+        radial-gradient(circle at left, rgba(59, 130, 246, 0.18), transparent 55%),
+        radial-gradient(circle at right, rgba(236, 72, 153, 0.14), transparent 55%),
+        rgba(10, 12, 22, 0.96);
+      box-shadow:
+        0 10px 25px rgba(0, 0, 0, 0.75),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+    }
+    .partners-ticker {
+      display: flex;
+      align-items: center;
+      gap: 40px;
+      animation: partners-marquee 18s linear infinite;
+      white-space: nowrap;
+    }
+    .partner-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 14px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: rgba(15, 23, 42, 0.96);
+      border: 1px solid rgba(148, 163, 184, 0.85);
+      box-shadow:
+        0 10px 24px rgba(15, 23, 42, 0.95),
+        0 0 12px rgba(59, 130, 246, 0.75);
+      color: #e5e7eb;
+    }
+    .partner-pill span.partner-code {
+      font-weight: 700;
+      font-size: 0.76rem;
+      opacity: 0.95;
+    }
+    .partner-pill span.partner-desc {
+      font-weight: 500;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 0.75rem;
+      opacity: 0.9;
+    }
+    @keyframes partners-marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
   </style>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-N0ED2XDCTY"></script>
@@ -144,7 +378,7 @@
     </div>
 
     <div class="brand-bar">
-      <div class="label">CIS Aurora — AntyScam współpracuje z:</div>
+      <div class="label">Nasi partnerzy:</div>
       <div class="brand-badges">
         <a href="https://www.outseta.com/" target="_blank" rel="noopener" class="brand-badge">
           <img src="static/outseta-logo-dark.svg" alt="Outseta" style="height:18px; display:block;">
@@ -162,6 +396,27 @@
         <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=register#o-anonymous">Załóż konto</a>
         <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=login#o-anonymous">Zaloguj</a>
         <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/profile#o-authenticated">Profil / Płatności</a>
+      </div>
+
+      <div style="height:50px;"></div>
+
+      <!-- Krótka legenda dla niezalogowanych -->
+      <div class="legend-short">
+        <p class="legend-short-title">Jak CIS Aurora ocenia kontrakty?</p>
+        <ul>
+          <li><strong>GO</strong> – kontrakt technicznie spełnia nasze standardy bezpieczeństwa (brak proxy z adminem, brak hard-honeypotu, brak drastycznych scam-wzorów).</li>
+          <li><strong>REVIEW</strong> – kod wygląda poprawnie, ale zawiera elementy wymagające decyzji człowieka (governance, mint, podatki, upgradeowalność).</li>
+          <li>
+  <strong>NO-GO</strong> – wysoki poziom ryzyka technicznego (proxy z pełną kontrolą, nieograniczony mint, honeypot, agresywne blacklist/whitelist itd.). 
+  NO-GO ≠ automatycznie scam — oznacza, że kontrakt nie spełnia standardów CIS Aurora.
+</li>
+        </ul>
+        <p class="legend-short-note">
+          🧠 Aurora analizuje wyłącznie <strong>kod smart kontraktu</strong> — bez wpływu ceny, TVL czy marketingu. 
+          🔍 Łączymy <strong>dogłębną analizę techniczną</strong> z <strong>predykcją ryzyka opartą o AI</strong>, która wychwytuje wzorce scamów niewidoczne na samym wykresie. 
+          <br><br>
+          🛡️ <strong>Najbardziej pożądanym wynikiem jest GO oraz wysoka ocena techniczna powyżej 8</strong> — oznacza to kontrakt mocny, stabilny i bez istotnych zagrożeń według standardów CIS Aurora.
+        </p>
       </div>
     </div>
 
@@ -211,6 +466,106 @@
       <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0"></div>
       <!-- Konsola (wyłączona): zostawiamy w DOM, ale nie pokazujemy -->
       <pre id="result" style="display:none;margin-top:12px">—</pre>
+
+      <!-- Pełna legenda po zalogowaniu -->
+      <section class="legend-full">
+        <h2 class="legend-full-title">Legenda oceny kontraktów CIS Aurora</h2>
+
+        <div class="legend-grid">
+          <div class="legend-item">
+            <div class="legend-badge legend-badge-go">GO</div>
+            <h3>GO — kontrakt technicznie bezpieczny</h3>
+            <p>
+              Kontrakt spełnia rygorystyczne standardy bezpieczeństwa CIS Aurora:
+              brak <strong>proxy z adminem</strong>, brak <strong>nieograniczonego mintu bez capu</strong>,
+              brak <strong>hard-honeypotu</strong>, <strong>drastycznych podatków</strong> i
+              agresywnych blokad handlu. GO <strong>nie jest</strong> obietnicą zysku —
+              oznacza, że w kodzie nie znaleziono poważnych czerwonych flag.
+            </p>
+          </div>
+
+          <div class="legend-item">
+            <div class="legend-badge legend-badge-review">REVIEW</div>
+            <h3>REVIEW — wymagany manualny przegląd</h3>
+            <p>
+              Kontrakt wygląda poprawnie, ale zawiera elementy, które mogą działać zarówno
+              uczciwie, jak i agresywnie: <strong>governance / DAO</strong>, 
+              <strong>role-based mint/burn</strong>, <strong>podatki</strong>,
+              <strong>upgradeowalność</strong> lub inne zaawansowane mechanizmy.
+              To strefa <strong>„przeczytaj raport, zanim klikniesz kup”</strong>.
+            </p>
+          </div>
+
+          <div class="legend-item">
+            <div class="legend-badge legend-badge-nogo">NO-GO</div>
+            <h3>NO-GO — wysoki poziom ryzyka technicznego</h3>
+            <p>
+              Wykryto poważne czerwone flagi, m.in.:
+              <strong>proxy z pełną kontrolą admina</strong>,
+              <strong>nieograniczony mint bez twardego limitu</strong>,
+              <strong>honeypot / blokady sprzedaży</strong>,
+              <strong>agresywne blacklist/whitelist</strong>,
+              <strong>kill-switch / drainer</strong> lub skrajna centralizacja podaży.
+              <br>
+              <u>NO-GO nie oznacza automatycznie, że projekt jest scamem</u> — oznacza, że
+              z perspektywy kodu kontrakt <strong>nie spełnia standardów bezpieczeństwa CIS Aurora</strong>
+              i wymaga maksymalnej ostrożności (w praktyce: zwykle omijamy).
+            </p>
+          </div>
+        </div>
+
+        <div class="legend-extra">
+          <h3>Macierz SELL / BUY / P2P</h3>
+          <p>
+            Dodatkowo Aurora ocenia ryzyko w trzech obszarach:
+          </p>
+          <ul>
+            <li><strong>SELL</strong> — czy da się bezpiecznie <strong>sprzedać</strong> token (honeypot, limity, blokady sprzedaży).</li>
+            <li><strong>BUY</strong> — ryzyko po stronie <strong>zakupu</strong> (dziwne podatki, drainer, manipulacja LP/routerem).</li>
+            <li><strong>P2P</strong> — ryzyko przy <strong>przelewach między użytkownikami</strong> (blacklist/whitelist, zamrażanie adresów).</li>
+          </ul>
+          <p>
+            <strong>PASS</strong> = brak twardych czerwonych flag w danym obszarze.  
+            <strong>ALERT</strong> = wykryto mechanizmy, które mogą utrudnić handel lub narazić środki.
+          </p>
+        </div>
+
+        <p class="legend-disclaimer">
+          CIS Aurora ocenia wyłącznie <strong>ryzyko w kodzie smart kontraktu</strong>.
+          Nie analizujemy ceny, TVL, marketingu ani reputacji projektu. 
+          Ostateczna decyzja inwestycyjna zawsze należy do Ciebie.
+        </p>
+      </section>
+    </div>
+
+    <div class="partners-ticker-wrapper">
+      <div class="partners-ticker">
+        <div class="partner-pill">
+          <span class="partner-code">BingX</span>
+          <span class="partner-desc">partner tradingowy</span>
+        </div>
+        <div class="partner-pill">
+          <span class="partner-code">Stripe</span>
+          <span class="partner-desc">płatności online</span>
+        </div>
+        <div class="partner-pill">
+          <span class="partner-code">Outseta</span>
+          <span class="partner-desc">logowanie &amp; subskrypcje</span>
+        </div>
+        <!-- duplikaty dla płynnej pętli animacji -->
+        <div class="partner-pill">
+          <span class="partner-code">BingX</span>
+          <span class="partner-desc">partner tradingowy</span>
+        </div>
+        <div class="partner-pill">
+          <span class="partner-code">Stripe</span>
+          <span class="partner-desc">płatności online</span>
+        </div>
+        <div class="partner-pill">
+          <span class="partner-code">Outseta</span>
+          <span class="partner-desc">logowanie &amp; subskrypcje</span>
+        </div>
+      </div>
     </div>
 
     <div class="footer muted">
