@@ -463,6 +463,10 @@
     <div id="resultCard" class="card" style="display:none">
       <h3>Wynik</h3>
 
+      <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0"></div>
+      <!-- Konsola (wyłączona): zostawiamy w DOM, ale nie pokazujemy -->
+      <pre id="result" style="display:none;margin-top:12px">—</pre>
+
       <section class="legend-full">
         <h2 class="legend-full-title">Legenda oceny kontraktów CIS Aurora</h2>
 
@@ -506,27 +510,24 @@
         <div class="legend-extra">
           <h3>Aurora ocenia dwutorowo</h3>
           <p>
-            Najpierw analizujemy sam <strong>kod smart kontraktu</strong>: logikę, uprawnienia,
-            podatki, mint, blokady handlu i inne mechanizmy, które mogą uderzyć w inwestora.
-            Na tej podstawie powstaje ocena <strong>GO / REVIEW / NO-GO</strong>.
+            <strong>1) Kod → GO / REVIEW / NO-GO.</strong>
+            Analizujemy czystą logikę kontraktu: uprawnienia właściciela, mint, podatki, blokady handlu,
+            blacklisty i inne mechanizmy, które mogą uderzyć w inwestora.
           </p>
           <p>
-            Drugi poziom to ogólne wrażenie ryzyka — czy kontrakt przypomina zdrowe projekty z rynku,
-            czy raczej schematy znane ze scamów. Nie patrzymy na cenę, hype ani marketing;
-            skupiamy się na tym, co jest zapisane w blockchainie i czego nie da się „dogadać”.
+            <strong>2) Ogólne ryzyko projektu.</strong>
+            Sprawdzamy, czy struktura kontraktu przypomina solidne projekty z rynku, czy raczej schematy
+            znane ze scamów. Nie interesuje nas hype ani marketing — liczy się tylko to, co faktycznie siedzi w kodzie.
           </p>
         </div>
 
         <p class="legend-disclaimer">
           CIS Aurora ocenia wyłącznie <strong>techniczne ryzyko w kodzie smart kontraktu</strong>.
-          Nie bierzemy pod uwagę ceny, TVL, marketingu ani reputacji zespołu. 
-          Aurora pomaga wychwycić ryzyko, ale <strong>ostateczna decyzja inwestycyjna zawsze należy do Ciebie</strong>.
+          Nie bierzemy pod uwagę ceny, TVL, marketingu ani reputacji zespołu.
+          Aurora pomaga wychwycić ryzyko, ale <strong>zawsze rób własny research (DYOR)</strong>,
+          a ostateczna decyzja inwestycyjna należy do Ciebie.
         </p>
       </section>
-
-      <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0"></div>
-      <!-- Konsola (wyłączona): zostawiamy w DOM, ale nie pokazujemy -->
-      <pre id="result" style="display:none;margin-top:12px">—</pre>
     </div>
 
     <div class="partners-ticker-wrapper">
