@@ -28,9 +28,9 @@ BANNER = r"""
 ║  CIS — Contract Integrator System | OFF Console — AURORA v3.3 (NX)  ║
 ║  Core: ERC-20 Heuristics + Oracle Touch + DAO/Router/Labeling + Gv. ║
 ╚══════════════════════════════════════════════════════════════════════╝
-Legend: GO (≥7.90) | REVIEW (6.5–7.89) | NO-GO (≤6.49)
+Legend: GO (≥8.00) | REVIEW (6.60–7.99) | NO-GO (<6.60)
 Decision: GO / REVIEW / NO-GO + confidence (LOW/MED/HIGH).
-Aurora CORE upgrade: prace nad wersją 4.0 (STRICT anti-scam).
+CIS Serwer — wersja 4.0 (STRICT anti-scam).
 """
 
 # ------------------ ENV / Config ------------------
@@ -1458,7 +1458,18 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
         if re.search(rx, source_code, re.IGNORECASE | re.DOTALL):
             found_flags.add(key)    # --- PATCH #33: mikro-detekcje (diagnostyczne, bez zmiany wag) ---
     # 1) constructor-mint do parametru (treasury/vesting) — łagodzimy wnioski ręcznie
-    if re.search(r'constructor\s*\([^)]*\)\s*\{[\s\S]*?_mint\s*\(\s*[A-Za-z0-9_]+\s*,', source_code, re.IGNORECASE):
+    if (
+        re.search(
+            r'constructor\s*\([^)]*\)\s*\{[\s\S]*?_mint\s*\(\s*[A-Za-z0-9_]+\s*,',
+            source_code,
+            re.IGNORECASE,
+        )
+        or re.search(
+            r'constructor\s*\([^)]*address\s+([A-Za-z0-9_]+)[^)]*\)\s*\{[\s\S]*?balances\s*\[\s*\1\s*\]\s*=\s*[A-Za-z0-9_]+\s*;',
+            source_code,
+            re.IGNORECASE,
+        )
+    ):
         found_flags.add('ctor_mint_param')
         explain.append("Constructor mint (parametr) → możliwy treasury/vesting init (diagnostic).")
 
@@ -1798,10 +1809,23 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
                 raw_score -= 1
                 explain.append("BigSupply softening: duża podaż bez podatków/mintów/LP rug — kara zmniejszona.")
 
-    # Mint softening: mint z capem/maxSupply bez 100% ownera
+    # Mint softening: mint z capem/maxSupply bez 100% ownera + specjalny przypadek governance (cap + cooldown)
+    has_governance_mint = False
+    if 'mint_capped' in found_flags:
+        if re.search(r'\bmintCap\b', source_code, re.IGNORECASE) and re.search(
+            r'\bminimumTimeBetweenMints\b|\bmintingAllowedAfter\b',
+            source_code,
+            re.IGNORECASE,
+        ):
+            has_governance_mint = True
+
     if "Wykryto funkcję mint" in triggered_categories and 'mint_capped' in found_flags and 'mint100_owner' not in found_flags:
-        raw_score -= 1
-        explain.append("Mint softening: funkcja mint z maxSupply/cap bez 100% owner — kara zmniejszona.")
+        if has_governance_mint:
+            raw_score -= 2
+            explain.append("Mint softening (governance): mint z capem + cooldown (minimumTimeBetweenMints/mintingAllowedAfter) — kara dodatkowo zmniejszona.")
+        else:
+            raw_score -= 1
+            explain.append("Mint softening: funkcja mint z maxSupply/cap bez 100% owner — kara zmniejszona.")
 
     # Rescue/withdraw softening: wypłata środków bez skimmera i high-tax
     if "Właściciel może wypłacać środki" in triggered_categories:
@@ -1920,6 +1944,22 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
     if honeypot_soft_candidate:
         red_flags.discard('require(!tradingOpen)')
 
+    # Kill-Switch softening: governance bez podatków/bramek ≠ twardy honeypot
+    kill_soft_candidate = False
+    if 'kill_switch' in found_flags:
+        if (
+            'require(!tradingOpen)' not in found_flags
+            and 'blacklist' not in found_flags
+            and 'whitelist' not in found_flags
+            and 'highTaxOver25' not in found_flags
+            and 'tax_no_cap' not in found_flags
+        ):
+            if gov_ctx["governor"] or gov_ctx["timelock"] or gov_ctx["multisig"]:
+                kill_soft_candidate = True
+                explain.append("Kill-Switch: wzorzec powiązany z governance (timelock/DAO/multisig) bez BL/WL/high-tax — traktowane jako miękka kontrola, nie twardy honeypot.")
+    if kill_soft_candidate:
+        red_flags.discard('kill_switch')
+
     proxy_set = {'delegatecall','upgradeTo','implementation','proxy'}
     matrix_all_pass = all(v == "PASS" for v in market_matrix.values())
     has_red = any(r in found_flags for r in red_flags)
@@ -1951,7 +1991,7 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
 
     # --- NOWA LOGIKA: decyzja GO / REVIEW / NO-GO ---
     # NO-GO:
-    #   - wynik <= 6.49
+    #   - wynik < 6.60
     #   - LUB jakikolwiek twardy problem:
     #       • matrix FAIL
     #       • red flag (honeypot/blacklist/skimmer/kill-switch/wipe/fake burn)
@@ -1960,20 +2000,71 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
     #       • tax_no_cap + realny drain
     #       • LP → owner bez locka
     # REVIEW:
-    #   - 6.50 <= wynik < 7.90 oraz brak twardych problemów
-    # GO:
-    #   - wynik >= 7.90 oraz brak twardych problemów
+    #   - 6.60 <= wynik < 8.00 oraz brak twardych problemów
+    # GO / REVIEW / NO-GO (decision)
+    #   - GO: wynik >= 8.00 oraz brak twardych problemów
+    #   - REVIEW: 6.60–7.99 przy braku twardych problemów
+    #   - NO-GO: wynik < 6.60 lub wykryte twarde problemy
+    governance_mint_mode = False
     if (
-        (final_score <= 6.49)
-        or (not matrix_all_pass)
+        'mint_capped' in found_flags
+        and 'ctor_mint_param' in found_flags
+        and 'require(!tradingOpen)' not in found_flags
+        and 'blacklist' not in found_flags
+        and 'highTaxOver25' not in found_flags
+        and 'tax_no_cap' not in found_flags
+        and 'pause' not in found_flags
+    ):
+        if re.search(r'\bminimumTimeBetweenMints\b', source_code, re.IGNORECASE) or re.search(
+            r'\bmintingAllowedAfter\b',
+            source_code,
+            re.IGNORECASE,
+        ):
+            governance_mint_mode = True
+
+    hard_problem = (
+        (not matrix_all_pass)
         or has_red
         or proxy_no_gov
         or high_tax
         or hard_tax_nocap
         or lp_owner_no_lock
+    )
+    if governance_mint_mode and hard_problem and final_score >= 6.60:
+        hard_problem = False
+        explain.append(
+            "Governance-mint mode: cap + cooldown + brak blacklist/fee/pause — NO-GO wyłączone, decyzja wg wyniku (GO/REVIEW)."
+        )
+
+    # DAO-Exception: governance-heavy token (Maker-style wards/rely/deny) bez czerwonych flag
+    dao_exception = False
+    if (
+        final_score >= 7.50
+        and matrix_all_pass
+        and re.search(r'\bwards\s*\[', source_code, re.IGNORECASE)
+        and re.search(r'\bfunction\s+rely\b', source_code, re.IGNORECASE)
+        and re.search(r'\bfunction\s+deny\b', source_code, re.IGNORECASE)
+        and 'highTaxOver25' not in found_flags
+        and 'blacklist' not in found_flags
+        and 'whitelist' not in found_flags
+        and 'tax_no_cap' not in found_flags
+        and 'eth_skimmer_on_sell' not in found_flags
+        and 'balance_wipe_swap' not in found_flags
+        and 'fake_burn_mint_to_addr' not in found_flags
+        and 'fake_burn_to_owner' not in found_flags
+        and 'kill_switch' not in found_flags
+        and not proxy_no_gov
     ):
+        dao_exception = True
+
+    if final_score < 6.60:
         decision = "NO-GO"
-    elif final_score >= 7.90:
+    elif hard_problem and not dao_exception:
+        decision = "NO-GO"
+    elif hard_problem and dao_exception:
+        decision = "REVIEW"
+        explain.append("DAO-Exception: governance-heavy token (wards/rely/deny) bez czerwonych flag — decyzja REVIEW zamiast NO-GO.")
+    elif final_score >= 8.0:
         decision = "GO"
     else:
         decision = "REVIEW"
