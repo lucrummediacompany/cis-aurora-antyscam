@@ -463,77 +463,72 @@
     <div id="resultCard" class="card" style="display:none">
       <h3>Wynik</h3>
       <!-- Tylko raport HTML -->
+      <!-- Pełna legenda po zalogowaniu -->
+      <section class="legend-full">
+
+      </section>
+
       <div id="overlayHTML" class="card" style="border:none;padding:0;margin:0"></div>
       <!-- Konsola (wyłączona): zostawiamy w DOM, ale nie pokazujemy -->
       <pre id="result" style="display:none;margin-top:12px">—</pre>
-
-      <!-- Pełna legenda po zalogowaniu -->
-      <section class="legend-full">
         <h2 class="legend-full-title">Legenda oceny kontraktów CIS Aurora</h2>
 
         <div class="legend-grid">
           <div class="legend-item">
             <div class="legend-badge legend-badge-go">GO</div>
-            <h3>GO — kontrakt technicznie bezpieczny</h3>
+            <h3>GO — kontrakt wygląda zdrowo</h3>
             <p>
-              Kontrakt spełnia rygorystyczne standardy bezpieczeństwa CIS Aurora:
-              brak <strong>proxy z adminem</strong>, brak <strong>nieograniczonego mintu bez capu</strong>,
-              brak <strong>hard-honeypotu</strong>, <strong>drastycznych podatków</strong> i
-              agresywnych blokad handlu. GO <strong>nie jest</strong> obietnicą zysku —
-              oznacza, że w kodzie nie znaleziono poważnych czerwonych flag.
+              W kodzie nie znaleziono poważnych zagrożeń.  
+              Brak ukrytych blokad handlu, brak podejrzanego mintu, brak niebezpiecznych uprawnień właściciela.  
+              To sygnał „technicznie wygląda dobrze”, a nie obietnica wzrostów — po prostu nie widzimy czerwonych flag.
             </p>
           </div>
 
           <div class="legend-item">
             <div class="legend-badge legend-badge-review">REVIEW</div>
-            <h3>REVIEW — wymagany manualny przegląd</h3>
+            <h3>REVIEW — sprawdź szczegóły przed decyzją</h3>
             <p>
-              Kontrakt wygląda poprawnie, ale zawiera elementy, które mogą działać zarówno
-              uczciwie, jak i agresywnie: <strong>governance / DAO</strong>, 
-              <strong>role-based mint/burn</strong>, <strong>podatki</strong>,
-              <strong>upgradeowalność</strong> lub inne zaawansowane mechanizmy.
-              To strefa <strong>„przeczytaj raport, zanim klikniesz kup”</strong>.
+              Kod wygląda OK, ale ma funkcje zależne od zaufania do zespołu: zmienne podatki, mint do ról, uprawnienia
+              administracyjne, opcje aktualizacji lub mechanizmy DAO.  
+              Nie jest to złe — po prostu warto przeczytać raport i zrozumieć, jak działa projekt.
             </p>
           </div>
 
           <div class="legend-item">
             <div class="legend-badge legend-badge-nogo">NO-GO</div>
-            <h3>NO-GO — wysoki poziom ryzyka technicznego</h3>
+            <h3>NO-GO — wysoki poziom ryzyka</h3>
             <p>
-              Wykryto poważne czerwone flagi, m.in.:
-              <strong>proxy z pełną kontrolą admina</strong>,
-              <strong>nieograniczony mint bez twardego limitu</strong>,
-              <strong>honeypot / blokady sprzedaży</strong>,
-              <strong>agresywne blacklist/whitelist</strong>,
-              <strong>kill-switch / drainer</strong> lub skrajna centralizacja podaży.
+              W kodzie wykryto elementy, które mogą realnie zagrozić środkom: blokady sprzedaży,
+              mint bez limitu, silną kontrolę właściciela, blacklisty/whitelisty, drainer lub
+              mechanizmy działające jak honeypot.
               <br>
-              <u>NO-GO nie oznacza automatycznie, że projekt jest scamem</u> — oznacza, że
-              z perspektywy kodu kontrakt <strong>nie spełnia standardów bezpieczeństwa CIS Aurora</strong>
-              i wymaga maksymalnej ostrożności (w praktyce: zwykle omijamy).
+              NO-GO <strong>nie oznacza</strong> automatycznie scamu — to sygnał, że kontrakt
+              <strong>nie spełnia standardów bezpieczeństwa CIS Aurora</strong> i wymaga
+              wyjątkowej ostrożności.
             </p>
           </div>
         </div>
 
         <div class="legend-extra">
-          <h3>Macierz SELL / BUY / P2P</h3>
+          <h3>Dodatkowe filtry ryzyka: SELL / BUY / P2P</h3>
           <p>
-            Dodatkowo Aurora ocenia ryzyko w trzech obszarach:
+            Aurora patrzy na kontrakt z trzech stron:
           </p>
           <ul>
-            <li><strong>SELL</strong> — czy da się bezpiecznie <strong>sprzedać</strong> token (honeypot, limity, blokady sprzedaży).</li>
-            <li><strong>BUY</strong> — ryzyko po stronie <strong>zakupu</strong> (dziwne podatki, drainer, manipulacja LP/routerem).</li>
-            <li><strong>P2P</strong> — ryzyko przy <strong>przelewach między użytkownikami</strong> (blacklist/whitelist, zamrażanie adresów).</li>
+            <li><strong>SELL</strong> — czy z tokena da się <strong>normalnie wyjść</strong>: honeypot, limity, blokady sprzedaży, sztuczne bariery.</li>
+            <li><strong>BUY</strong> — co może pójść źle przy <strong>wejściu w projekt</strong>: podejrzane podatki, ukryty drainer, manipulacja płynnością lub routerem.</li>
+            <li><strong>P2P</strong> — bezpieczeństwo <strong>zwykłych transferów między użytkownikami</strong>: blacklist/whitelist, zamrażanie adresów, inne formy cenzury.</li>
           </ul>
           <p>
-            <strong>PASS</strong> = brak twardych czerwonych flag w danym obszarze.  
-            <strong>ALERT</strong> = wykryto mechanizmy, które mogą utrudnić handel lub narazić środki.
+            <strong>PASS</strong> = brak twardych czerwonych flag w danym obszarze — mechanizm wygląda technicznie neutralnie.  
+            <strong>ALERT</strong> = wykryto coś, co może utrudnić handel lub zwiększyć ryzyko utraty środków — wymaga ręcznego sprawdzenia.
           </p>
         </div>
 
         <p class="legend-disclaimer">
-          CIS Aurora ocenia wyłącznie <strong>ryzyko w kodzie smart kontraktu</strong>.
-          Nie analizujemy ceny, TVL, marketingu ani reputacji projektu. 
-          Ostateczna decyzja inwestycyjna zawsze należy do Ciebie.
+          CIS Aurora ocenia wyłącznie <strong>techniczne ryzyko w kodzie smart kontraktu</strong>.
+          Nie bierzemy pod uwagę ceny, TVL, marketingu ani reputacji zespołu. 
+          Aurora pomaga wychwycić ryzyko, ale <strong>ostateczna decyzja inwestycyjna zawsze należy do Ciebie</strong>.
         </p>
       </section>
     </div>
