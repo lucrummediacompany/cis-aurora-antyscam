@@ -374,6 +374,17 @@
          ">
         O nas
       </a>
+
+      <a class="button"
+         id="logoutBtn"
+         href="#logout"
+         style="
+           background:#1f2330;
+           padding:8px 14px;
+           border-radius:8px;
+         ">
+        Wyloguj
+      </a>
     </nav>
 
     <div id="statusBar" class="status-bar" style="display:none">
@@ -588,6 +599,7 @@
     const statusPlan  = document.getElementById("statusPlan");
     const statusState = document.getElementById("statusState");
     const analyzeBtn  = document.querySelector("#analyzeCard button.primary");
+    const logoutBtn   = document.getElementById("logoutBtn");
 
     let isAuthed = false;
     let profile  = null;
@@ -719,6 +731,20 @@
     Outseta.on('accessToken.set', refreshAuthState);
     Outseta.on('logout', refreshAuthState);
     refreshAuthState();
+
+    // Dodatkowe odświeżenie po załadowaniu strony (po powrocie z Outsety),
+    // żeby nie trzeba było „klikać drugi raz”.
+    window.addEventListener("load", function () {
+      try {
+        // szybki check tuż po załadowaniu
+        refreshAuthState();
+        // oraz po krótkim opóźnieniu – gdyby token wpadł chwilę później
+        setTimeout(refreshAuthState, 700);
+        setTimeout(refreshAuthState, 2000);
+      } catch (e) {
+        console.warn("Auth refresh on load failed:", e);
+      }
+    });
 
     if(form){
       form.addEventListener("submit", async (e)=>{
