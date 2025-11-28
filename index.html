@@ -360,50 +360,12 @@
       Inteligentna tarcza anty-scam dla traderów i projektów Web3.
     </p>
 
-    <nav class="row" style="justify-content: flex-end; gap: 12px;">
-      <a class="button"
-         href="https://www.lucrummediacompany.eu/"
-         target="_blank"
-         rel="noopener"
-         style="
-           background: linear-gradient(135deg, rgba(245,200,106,0.20), rgba(255,127,209,0.20));
-           border: 1px solid rgba(255,255,255,0.12);
-           backdrop-filter: blur(4px);
-           padding: 8px 16px;
-           font-weight: 600;
-         ">
-        O nas
-      </a>
-
-      <!-- NOWE: przyciski logowania / rejestracji / profil w top-nav -->
-      <a class="button"
-         id="loginNavBtn"
-         href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=login&redirect=https://cis-aurora-antyscam.onrender.com/#o-authenticated">
-        Zaloguj
-      </a>
-
-      <a class="button"
-         id="registerNavBtn"
-         href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=register&redirect=https://cis-aurora-antyscam.onrender.com/#o-authenticated">
-        Załóż konto
-      </a>
-
-      <a class="button"
-         id="profileNavBtn"
-         href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/profile#o-authenticated">
-        Profil / Płatności
-      </a>
-
-      <a class="button"
-         id="logoutBtn"
-         href="#logout"
-         style="
-           background:#1f2330;
-           padding:8px 14px;
-           border-radius:8px;
-         ">
-        Wyloguj
-      </a>
+    <nav class="row">
+      <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=register#o-anonymous">Załóż konto (trial 3 dni)</a>
+      <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=login#o-anonymous">Zaloguj</a>
+      <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/profile#o-authenticated">Profil / Płatności</a>
+      <a class="button" href="https://www.lucrummediacompany.eu/" target="_blank" rel="noopener">O nas</a>
+      <a class="button" href="#o-logout-link">Wyloguj</a>
     </nav>
 
     <div id="statusBar" class="status-bar" style="display:none">
@@ -431,8 +393,8 @@
       <h3>🔒 Brak dostępu do analizy</h3>
       <p class="muted">Ta funkcja jest dostępna tylko dla zalogowanych użytkowników. Utwórz konto i korzystaj z 3-dniowego triala.</p>
       <div class="cta-row">
-        <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=register&redirect=https://cis-aurora-antyscam.onrender.com/#o-authenticated">Załóż konto (3 dni trial)</a>
-        <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=login&redirect=https://cis-aurora-antyscam.onrender.com/#o-authenticated">Zaloguj</a>
+        <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=register#o-anonymous">Załóż konto</a>
+        <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=login#o-anonymous">Zaloguj</a>
         <a class="button" href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/profile#o-authenticated">Profil / Płatności</a>
       </div>
 
@@ -618,10 +580,6 @@
     const statusPlan  = document.getElementById("statusPlan");
     const statusState = document.getElementById("statusState");
     const analyzeBtn  = document.querySelector("#analyzeCard button.primary");
-    const logoutBtn   = document.getElementById("logoutBtn");
-    const loginNavBtn    = document.getElementById("loginNavBtn");
-    const registerNavBtn = document.getElementById("registerNavBtn");
-    const profileNavBtn  = document.getElementById("profileNavBtn");
 
     let isAuthed = false;
     let profile  = null;
@@ -712,12 +670,6 @@
     }
 
     function renderGate(){
-      // 🔐 Przyciski w top-nav zależne od stanu auth
-      if (logoutBtn)     setDisplay(logoutBtn, !!isAuthed);
-      if (loginNavBtn)   setDisplay(loginNavBtn, !isAuthed);
-      if (registerNavBtn)setDisplay(registerNavBtn, !isAuthed);
-      // profileNavBtn zostawiamy zawsze widoczny (Outseta i tak poprosi o login w razie potrzeby)
-
       if(isAuthed){
         setDisplay(deniedCard,false);
         setDisplay(analyzeCard,true);
@@ -759,43 +711,6 @@
     Outseta.on('accessToken.set', refreshAuthState);
     Outseta.on('logout', refreshAuthState);
     refreshAuthState();
-
-    // Obsługa przycisku "Wyloguj" w nawigacji
-    if (logoutBtn){
-      logoutBtn.addEventListener("click", function (e) {
-        e.preventDefault();
-        // 1) Wylogowanie z Outsety (token, cookies itd.)
-        try { Outseta.logout(); } catch(_) {}
-
-        // 2) Wyczyszczenie stanu frontendu
-        try{
-          isAuthed = false;
-          profile  = null;
-          renderStatus(null);
-          renderGate();
-        }catch(_){}
-
-        // 3) Twardy redirect do strony logowania Outsety,
-        //    żeby sesja była na pewno wyczyszczona
-        window.location.href =
-          "https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth" +
-          "?widgetMode=login&redirect=https://cis-aurora-antyscam.onrender.com/#o-anonymous";
-      });
-    }
-
-    // Dodatkowe odświeżenie po załadowaniu strony (po powrocie z Outsety),
-    // żeby nie trzeba było „klikać drugi raz”.
-    window.addEventListener("load", function () {
-      try {
-        // szybki check tuż po załadowaniu
-        refreshAuthState();
-        // oraz po krótkim opóźnieniu – gdyby token wpadł chwilę później
-        setTimeout(refreshAuthState, 700);
-        setTimeout(refreshAuthState, 2000);
-      } catch (e) {
-        console.warn("Auth refresh on load failed:", e);
-      }
-    });
 
     if(form){
       form.addEventListener("submit", async (e)=>{
