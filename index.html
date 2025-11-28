@@ -375,6 +375,25 @@
         O nas
       </a>
 
+      <!-- NOWE: przyciski logowania / rejestracji / profil w top-nav -->
+      <a class="button"
+         id="loginNavBtn"
+         href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=login&redirect=https://cis-aurora-antyscam.onrender.com/#o-authenticated">
+        Zaloguj
+      </a>
+
+      <a class="button"
+         id="registerNavBtn"
+         href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth?widgetMode=register&redirect=https://cis-aurora-antyscam.onrender.com/#o-authenticated">
+        Załóż konto
+      </a>
+
+      <a class="button"
+         id="profileNavBtn"
+         href="https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/profile#o-authenticated">
+        Profil / Płatności
+      </a>
+
       <a class="button"
          id="logoutBtn"
          href="#logout"
@@ -600,6 +619,9 @@
     const statusState = document.getElementById("statusState");
     const analyzeBtn  = document.querySelector("#analyzeCard button.primary");
     const logoutBtn   = document.getElementById("logoutBtn");
+    const loginNavBtn    = document.getElementById("loginNavBtn");
+    const registerNavBtn = document.getElementById("registerNavBtn");
+    const profileNavBtn  = document.getElementById("profileNavBtn");
 
     let isAuthed = false;
     let profile  = null;
@@ -690,10 +712,11 @@
     }
 
     function renderGate(){
-      // 🔐 Wyloguj pokazujemy tylko, jeśli użytkownik jest zalogowany
-      if (logoutBtn) {
-        setDisplay(logoutBtn, !!isAuthed);
-      }
+      // 🔐 Przyciski w top-nav zależne od stanu auth
+      if (logoutBtn)     setDisplay(logoutBtn, !!isAuthed);
+      if (loginNavBtn)   setDisplay(loginNavBtn, !isAuthed);
+      if (registerNavBtn)setDisplay(registerNavBtn, !isAuthed);
+      // profileNavBtn zostawiamy zawsze widoczny (Outseta i tak poprosi o login w razie potrzeby)
 
       if(isAuthed){
         setDisplay(deniedCard,false);
