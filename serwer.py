@@ -6,6 +6,7 @@ import requests
 from datetime import datetime, timezone
 import smtplib
 from email.mime.text import MIMEText
+from core_hearth.analyzer_core_hearth import fetch_contract_source, analyze_contract
 
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 ANALYZE_DIR = os.path.join(APP_ROOT, "ANALYZE")
@@ -568,6 +569,87 @@ def analyze():
                 }
             ),
             504,
+        )
+
+
+@app.route("/hearth-analyze", methods=["POST"])
+def hearth_analyze():
+    """
+    Wewnętrzny endpoint dla SERCA.
+    Przyjmuje JSON {"address": "0x..."} i zwraca wynik z analyzer_core_hearth.py.
+    """
+    data = request.get_json(silent=True) or {}
+    address = (data.get("address") or "").strip()
+
+    if not ADDRESS_RE.match(address):
+        return (
+            jsonify(
+                {
+                    "ok": False,
+                    "error": "invalid_address",
+                    "message": "Podany adres nie jest prawidłowym adresem Ethereum (musi mieć format 0x + 40 znaków szesnastkowych).",
+                }
+            ),
+            400,
+        )
+
+    try:
+        src = fetch_contract_source(address)
+        if not src:
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "error": "no_source",
+                        "message": "Brak kodu źródłowego na Etherscan dla tego adresu (kontrakt nie jest zweryfikowany).",
+                    }
+                ),
+                200,
+            )
+
+        report = analyze_contract("Contract", address, src, contract_meta=None)
+        if not isinstance(report, dict):
+            return (
+                jsonify(
+                    {
+                        "ok": False,
+                        "error": "bad_report",
+                        "message": "Silnik zwrócił nieprawidłowy raport.",
+                    }
+                ),
+                500,
+            )
+
+        score = float(report.get("score", 0.0) or 0.0)
+        risk_level = report.get("risk_level") or ""
+        decision = report.get("decision") or ""
+        bucket = report.get("bucket") or ""
+
+        return (
+            jsonify(
+                {
+                    "ok": True,
+                    "address": address,
+                    "score": score,
+                    "risk_level": risk_level,
+                    "decision": decision,
+                    "bucket": bucket,
+                    "report": report,
+                }
+            ),
+            200,
+        )
+
+    except Exception as e:
+        return (
+            jsonify(
+                {
+                    "ok": False,
+                    "error": "internal_error",
+                    "message": str(e),
+                }
+            ),
+            500,
         )
 
 
