@@ -690,6 +690,11 @@
     }
 
     function renderGate(){
+      // 🔐 Wyloguj pokazujemy tylko, jeśli użytkownik jest zalogowany
+      if (logoutBtn) {
+        setDisplay(logoutBtn, !!isAuthed);
+      }
+
       if(isAuthed){
         setDisplay(deniedCard,false);
         setDisplay(analyzeCard,true);
