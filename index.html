@@ -732,6 +732,29 @@
     Outseta.on('logout', refreshAuthState);
     refreshAuthState();
 
+    // Obsługa przycisku "Wyloguj" w nawigacji
+    if (logoutBtn){
+      logoutBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        // 1) Wylogowanie z Outsety (token, cookies itd.)
+        try { Outseta.logout(); } catch(_) {}
+
+        // 2) Wyczyszczenie stanu frontendu
+        try{
+          isAuthed = false;
+          profile  = null;
+          renderStatus(null);
+          renderGate();
+        }catch(_){}
+
+        // 3) Twardy redirect do strony logowania Outsety,
+        //    żeby sesja była na pewno wyczyszczona
+        window.location.href =
+          "https://lucrum-media-company-spolka-z-ograniczona-odpowiedzialnoscia.outseta.com/auth" +
+          "?widgetMode=login&redirect=https://cis-aurora-antyscam.onrender.com/#o-anonymous";
+      });
+    }
+
     // Dodatkowe odświeżenie po załadowaniu strony (po powrocie z Outsety),
     // żeby nie trzeba było „klikać drugi raz”.
     window.addEventListener("load", function () {
