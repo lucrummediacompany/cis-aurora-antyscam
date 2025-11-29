@@ -1,4 +1,10 @@
 # ==================== CIS_OFF_AURORA_v3_3.py — PART 1/5 ====================
+# ==================== AURORA VERSION: 4.1 =============================
+# 4.1 patch notes:
+# - Owner-Controlled Advisory threshold lowered (6.50–6.59 → REVIEW)
+# - No change to scoring system
+# - Anti-Scam Lock unchanged (proxy-no-gov, blacklist, honeypot, high tax, unlimited mint = NO-GO)
+# - Balanced decision layer for centralized-but-clean ERC20 (no flag inflation)
 # Aurora v3.3 (NEXUS) — "CIS Integrated+ CORE-STABLE"
 # Przywrócone z v2.7:
 #   • Oracle Touch (ownership surface, mutable caps, one-block, lock hints, secrets, heatmap)
@@ -1527,7 +1533,7 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
     has_cap_guard = any(f["guarded_cap"] == "yes" for f in fee_flow["flows"])
     drain_sinks = ['manualSend','sendETHToFee']
     has_drain = any(re.search(rf'\b{sink}\b', source_code) for sink in drain_sinks)
-    if has_drain and not DEEP_REGEX['eth_skimmer_on_sell'].search(source_code):
+    if has_drain and not re.search(DEEP_REGEX['eth_skimmer_on_sell'], source_code, re.IGNORECASE):
         has_drain = False
     if (re.search(r'(taxFee|marketingFee|devFee|setTax|setFees|updateFee)', source_code, re.IGNORECASE) and
         not re.search(r'\b(maxSupply|cap)\b', source_code, re.IGNORECASE)):
@@ -2057,7 +2063,12 @@ def analyze_contract(name: str, address: str, source_code: str, contract_meta: O
     ):
         dao_exception = True
 
-    if final_score < 6.60:
+    # Aurora 4.1 — łagodniejsze traktowanie czystej centralizacji (Owner-Controlled Advisory)
+    no_go_threshold = 6.60
+    if advisory and advisory.get("label") == "Owner-Controlled Advisory":
+        no_go_threshold = 6.50
+
+    if final_score < no_go_threshold:
         decision = "NO-GO"
     elif hard_problem and not dao_exception:
         decision = "NO-GO"
