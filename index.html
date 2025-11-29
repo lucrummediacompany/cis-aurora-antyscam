@@ -959,32 +959,5 @@
       }
     })();
   </script>
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    // 1) Złap przycisk "Zaloguj" w headerze (dopasuj selektor do tego, co masz)
-    var loginBtn = document.querySelector('a.button[data-widget-mode="login"]');
-
-    if (loginBtn && window.Outseta) {
-      loginBtn.addEventListener('click', function () {
-        // prosty "anty-duble" – blokujemy spam kliknięciami
-        loginBtn.dataset.loggingIn = "1";
-        loginBtn.style.opacity = "0.6";
-        loginBtn.style.pointerEvents = "none";
-        loginBtn.textContent = "Logowanie...";
-
-        // tu NIC nie zmieniamy w samej logice Outsety – ona i tak otworzy swój login
-      });
-    }
-
-    // 2) Gdy Outseta faktycznie ustawi token, odświeżamy stronę
-    if (window.Outseta && typeof Outseta.on === "function") {
-      Outseta.on('accessToken.set', function () {
-        // token już jest → po reloadzie NoCode / auth bar zobaczy, że user jest zalogowany
-        window.location.reload();
-        return false; // żeby inne callbacki (jeśli są) nie nadpisały zachowania
-      });
-    }
-  });
-</script>
 </body>
 </html>
