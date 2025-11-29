@@ -36,7 +36,15 @@
     .muted { color: #9aa0a6; font-size: 14px; }
     .row { display: flex; gap: 8px; margin-top: 8px; flex-wrap:wrap; }
     nav.row { margin-bottom: 12px; }
-    nav.row a.button{ text-decoration: none; background: #1f2330; color: #e6e7ea; padding: 8px 14px; border-radius: 8px; transition: background .2s; }
+    nav.row a.button{
+  text-decoration: none;
+  background: #1f2330;
+  color: #e6e7ea;
+  padding: 8px 14px;
+  border-radius: 8px;
+  transition: background .2s;
+  cursor: pointer;
+}
     nav.row a.button:hover { background: #2b3242; }
     .status-bar { margin: 10px 0 6px 0; padding: 10px 12px; border: 1px solid #2a2e37; border-radius: 10px; background: #101421; font-size: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .status-bar .left { display:flex; gap:10px; align-items:center; }
@@ -88,7 +96,10 @@
     .denied { text-align: center; padding: 28px; border: 1px dashed #2a2e37; background: linear-gradient(180deg,#121520,#0e1018); }
     .denied h3 { margin: 0 0 6px 0; }
     .cta-row { display:flex; gap:8px; justify-content:center; margin-top:12px; flex-wrap:wrap; }
-    .cta-row a.button { background:#2b3242; }
+    .cta-row a.button{
+  background:#2b3242;
+  cursor:pointer;
+}
     .cta-row a.button:hover { background:#3a4257; }
 
     .footer{
@@ -338,6 +349,15 @@
       0% { transform: translateX(0); }
       100% { transform: translateX(-50%); }
     }
+
+/* === FORCE CURSOR FOR ALL OUTSETA BUTTONS === */
+[data-o-auth],
+[data-o-anonymous],
+[data-o-profile],
+[data-o-logout-link],
+[data-widget-mode] {
+  cursor: pointer !important;
+}
   </style>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-N0ED2XDCTY"></script>
