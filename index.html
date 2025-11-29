@@ -958,6 +958,48 @@
         console.warn("Token cleanup error:", err);
       }
     })();
+
+    // === Aurora x Outseta — UX logowania bez pętli reloadów ===
+    document.addEventListener('DOMContentLoaded', function () {
+      // 1) Wszystkie przyciski "Zaloguj" (góra + box)
+      var loginBtns = document.querySelectorAll('a.button[data-widget-mode="login"]');
+
+      if (loginBtns.length) {
+        loginBtns.forEach(function (loginBtn) {
+          loginBtn.addEventListener('click', function () {
+            // oznaczamy, że user faktycznie rozpoczął logowanie
+            try {
+              sessionStorage.setItem('auroraLoginInProgress', '1');
+            } catch (_) {}
+
+            // prosty "anty-duble" – blokujemy spam kliknięciami
+            loginBtn.dataset.loggingIn = "1";
+            loginBtn.style.opacity = "0.6";
+            loginBtn.style.pointerEvents = "none";
+            loginBtn.textContent = "Logowanie...";
+            // Outseta i tak otworzy swój popup logowania
+          });
+        });
+      }
+
+      // 2) Reload tylko wtedy, gdy w tej sesji naprawdę kliknięto "Zaloguj"
+      if (window.Outseta && typeof Outseta.on === "function") {
+        Outseta.on('accessToken.set', function () {
+          var shouldReload = false;
+          try {
+            shouldReload = sessionStorage.getItem('auroraLoginInProgress') === '1';
+          } catch (_) {
+            shouldReload = false;
+          }
+
+          if (shouldReload) {
+            try { sessionStorage.removeItem('auroraLoginInProgress'); } catch (_) {}
+            window.location.reload();
+            return false;
+          }
+        });
+      }
+    });
   </script>
 </body>
 </html>
